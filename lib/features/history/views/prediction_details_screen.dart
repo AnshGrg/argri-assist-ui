@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_sizes.dart';
+import '../../predict/controllers/predict_controller.dart';
 import '../../predict_fertilizer/controllers/fertilizer_controller.dart';
 import '../../predict_fertilizer/repos/fertilizer_repo.dart';
 import '../../predict_fertilizer/views/predict_fertilizer_screen.dart';
@@ -369,15 +370,15 @@ class PredictionDetailsScreen extends StatelessWidget {
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () {
-                      final fertCtrl = FertilizerController(fertilizerRepo: MockFertilizerRepo());
+                      final fertCtrl = FertilizerController(fertilizerRepo: HttpFertilizerRepo());
                       fertCtrl.prefillFromCropResult(
-                        item.cropName,
-                        item.nitrogen,
-                        item.phosphorus,
-                        item.potassium,
-                        item.ph,
-                        item.temperature,
-                        item.rainfall,
+                        crop: item.cropName,
+                        n: item.nitrogen,
+                        p: item.phosphorus,
+                        k: item.potassium,
+                        phVal: item.ph,
+                        location: PredictController.locationOptions[0],
+                        season: 'Monsoon',
                       );
                       Navigator.of(context).push(
                         MaterialPageRoute(

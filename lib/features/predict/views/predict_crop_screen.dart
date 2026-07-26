@@ -160,33 +160,138 @@ class _PredictCropScreenState extends State<PredictCropScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Other Parameters',
+          'Location & Environment',
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: AppColors.textDark,
               ),
         ),
         AppSizes.spaceM,
-        _buildParameterItem(
-          context: context,
-          label: 'Temperature (°C)',
-          value: widget.controller.temperature.toString(),
-          isFetching: widget.controller.isAutoFetchingTemperature,
-          badgeText: 'Auto-fetched',
-          actionIcon: Icons.refresh_rounded,
-          onActionTap: widget.controller.autoFetchTemperature,
+        // Location Dropdown Card
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSizes.l,
+            vertical: AppSizes.s,
+          ),
+          decoration: BoxDecoration(
+            color: AppColors.white.withValues(alpha: 0.6),
+            borderRadius: BorderRadius.circular(AppSizes.radiusLarge),
+            border: Border.all(
+              color: AppColors.white.withValues(alpha: 0.8),
+              width: 1,
+            ),
+            boxShadow: const [
+              BoxShadow(
+                color: AppColors.cardShadow,
+                blurRadius: 6,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Location',
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textDark,
+                    ),
+              ),
+              DropdownButton<LocationOption>(
+                value: widget.controller.selectedLocation,
+                underline: const SizedBox(),
+                icon: const Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: AppColors.textMedium,
+                ),
+                dropdownColor: AppColors.backgroundGreen,
+                onChanged: (LocationOption? newValue) {
+                  if (newValue != null) {
+                    widget.controller.setLocation(newValue);
+                  }
+                },
+                items: PredictController.locationOptions
+                    .map<DropdownMenuItem<LocationOption>>((LocationOption value) {
+                  return DropdownMenuItem<LocationOption>(
+                    value: value,
+                    child: Text(
+                      value.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textDark,
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
         ),
         AppSizes.spaceM,
-        _buildParameterItem(
-          context: context,
-          label: 'Rainfall (mm)',
-          value: widget.controller.rainfall.toString(),
-          isFetching: widget.controller.isAutoFetchingRainfall,
-          badgeText: 'Auto-fetched',
-          actionIcon: Icons.refresh_rounded,
-          onActionTap: widget.controller.autoFetchRainfall,
+        // Season Dropdown Card
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSizes.l,
+            vertical: AppSizes.s,
+          ),
+          decoration: BoxDecoration(
+            color: AppColors.white.withValues(alpha: 0.6),
+            borderRadius: BorderRadius.circular(AppSizes.radiusLarge),
+            border: Border.all(
+              color: AppColors.white.withValues(alpha: 0.8),
+              width: 1,
+            ),
+            boxShadow: const [
+              BoxShadow(
+                color: AppColors.cardShadow,
+                blurRadius: 6,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Season',
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textDark,
+                    ),
+              ),
+              DropdownButton<String>(
+                value: widget.controller.selectedSeason,
+                underline: const SizedBox(),
+                icon: const Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: AppColors.textMedium,
+                ),
+                dropdownColor: AppColors.backgroundGreen,
+                onChanged: (String? newValue) {
+                  if (newValue != null) {
+                    widget.controller.setSeason(newValue);
+                  }
+                },
+                items: PredictController.seasonOptions
+                    .map<DropdownMenuItem<String>>((String value) {
+                  return DropdownMenuItem<String>(
+                    value: value,
+                    child: Text(
+                      value,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textDark,
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
         ),
         AppSizes.spaceM,
+        // Soil pH Card
         _buildParameterItem(
           context: context,
           label: 'Soil pH',
@@ -313,7 +418,7 @@ class _PredictCropScreenState extends State<PredictCropScreen> {
           SizedBox(width: AppSizes.m),
           Expanded(
             child: Text(
-              'Weather data is auto-fetched from your location and can be edited.',
+              'Climate data (temperature, humidity, rainfall) will be automatically fetched from NASA POWER 2025 API based on your selected location and season.',
               style: TextStyle(
                 color: AppColors.textMedium,
                 fontSize: 13,
@@ -340,6 +445,7 @@ class _PredictCropScreenState extends State<PredictCropScreen> {
             Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (context) => PredictCropResultScreen(
+                  controller: widget.controller,
                   result: widget.controller.predictionResult!,
                 ),
               ),

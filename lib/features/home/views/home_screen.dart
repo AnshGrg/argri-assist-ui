@@ -50,7 +50,7 @@ class _HomeScreenState extends State<HomeScreen> {
       case 1:
         return PredictCropScreen(
           controller: PredictController(
-            predictRepo: MockPredictRepo(),
+            predictRepo: HttpPredictRepo(),
           ),
         );
       case 2:
@@ -309,7 +309,7 @@ class _HomeScreenState extends State<HomeScreen> {
               MaterialPageRoute(
                 builder: (context) => PredictCropScreen(
                   controller: PredictController(
-                    predictRepo: MockPredictRepo(),
+                    predictRepo: HttpPredictRepo(),
                   ),
                 ),
               ),
@@ -328,7 +328,7 @@ class _HomeScreenState extends State<HomeScreen> {
               MaterialPageRoute(
                 builder: (context) => PredictFertilizerScreen(
                   controller: FertilizerController(
-                    fertilizerRepo: MockFertilizerRepo(),
+                    fertilizerRepo: HttpFertilizerRepo(),
                   ),
                 ),
               ),

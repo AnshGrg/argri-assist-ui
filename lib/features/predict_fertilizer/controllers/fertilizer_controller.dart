@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../predict/controllers/predict_controller.dart'; // for LocationOption
 import '../models/fertilizer_request_model.dart';
 import '../models/fertilizer_result_model.dart';
 import '../repos/fertilizer_repo.dart';
@@ -10,44 +11,50 @@ class FertilizerController extends ChangeNotifier {
 
   FertilizerController({required FertilizerRepo fertilizerRepo}) : _fertilizerRepo = fertilizerRepo;
 
-  String _cropType = 'Maize';
+  static const List<LocationOption> locationOptions = PredictController.locationOptions;
+  static const List<String> seasonOptions = PredictController.seasonOptions;
+
+  String _cropType = 'rice';
   String get cropType => _cropType;
 
-  String _soilType = 'Loamy';
-  String get soilType => _soilType;
-
-  double _nitrogen = 120.0;
+  double _nitrogen = 90.0;
   double get nitrogen => _nitrogen;
 
-  double _phosphorus = 60.0;
+  double _phosphorus = 42.0;
   double get phosphorus => _phosphorus;
 
-  double _potassium = 80.0;
+  double _potassium = 43.0;
   double get potassium => _potassium;
 
-  double _ph = 6.7;
+  double _ph = 6.5;
   double get ph => _ph;
 
-  double _temperature = 27.6;
-  double get temperature => _temperature;
+  LocationOption _selectedLocation = locationOptions[0];
+  LocationOption get selectedLocation => _selectedLocation;
 
-  double _humidity = 65.0;
-  double get humidity => _humidity;
-
-  double _rainfall = 82.4;
-  double get rainfall => _rainfall;
+  String _selectedSeason = 'Monsoon';
+  String get selectedSeason => _selectedSeason;
 
   bool _isLoading = false;
   bool get isLoading => _isLoading;
 
-  bool _isAutoFetchingTemperature = false;
-  bool get isAutoFetchingTemperature => _isAutoFetchingTemperature;
+  static List<String> _crops = [];
+  List<String> get crops => _crops;
 
-  bool _isAutoFetchingHumidity = false;
-  bool get isAutoFetchingHumidity => _isAutoFetchingHumidity;
+  static Future<void> prefetchCrops(FertilizerRepo repo) async {
+    if (_crops.isNotEmpty) return;
+    try {
+      _crops = await repo.getCrops();
+    } catch (_) {
+      // Fail silently without any error or retry
+    }
+  }
 
-  bool _isAutoFetchingRainfall = false;
-  bool get isAutoFetchingRainfall => _isAutoFetchingRainfall;
+  bool _isFetchingCrops = false;
+  bool get isFetchingCrops => _isFetchingCrops;
+
+  bool _isCropTypeLocked = false;
+  bool get isCropTypeLocked => _isCropTypeLocked;
 
   FertilizerResultModel? _predictionResult;
   FertilizerResultModel? get predictionResult => _predictionResult;
@@ -55,23 +62,27 @@ class FertilizerController extends ChangeNotifier {
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
 
-  void prefillFromCropResult(String crop, double n, double p, double k, double phVal, double temp, double rain) {
+  void prefillFromCropResult({
+    required String crop,
+    required double n,
+    required double p,
+    required double k,
+    required double phVal,
+    required LocationOption location,
+    required String season,
+  }) {
     _cropType = crop;
     _nitrogen = n;
     _phosphorus = p;
     _potassium = k;
     _ph = phVal;
-    _temperature = temp;
-    _rainfall = rain;
+    _selectedLocation = location;
+    _selectedSeason = season;
+    _isCropTypeLocked = true;
   }
 
   void setCropType(String val) {
     _cropType = val;
-    notifyListeners();
-  }
-
-  void setSoilType(String val) {
-    _soilType = val;
     notifyListeners();
   }
 
@@ -92,31 +103,35 @@ class FertilizerController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> autoFetchTemperature() async {
-    _isAutoFetchingTemperature = true;
-    notifyListeners();
-    await Future.delayed(const Duration(milliseconds: 600));
-    _temperature = 27.6;
-    _isAutoFetchingTemperature = false;
+  void setLocation(LocationOption loc) {
+    _selectedLocation = loc;
     notifyListeners();
   }
 
-  Future<void> autoFetchHumidity() async {
-    _isAutoFetchingHumidity = true;
-    notifyListeners();
-    await Future.delayed(const Duration(milliseconds: 600));
-    _humidity = 65.0;
-    _isAutoFetchingHumidity = false;
-    notifyListeners();
+  void setSeason(String season) {
+    if (seasonOptions.contains(season)) {
+      _selectedSeason = season;
+      notifyListeners();
+    }
   }
 
-  Future<void> autoFetchRainfall() async {
-    _isAutoFetchingRainfall = true;
+  Future<void> fetchCrops() async {
+    if (_crops.isNotEmpty) return;
+    _isFetchingCrops = true;
+    _errorMessage = null;
     notifyListeners();
-    await Future.delayed(const Duration(milliseconds: 600));
-    _rainfall = 82.4;
-    _isAutoFetchingRainfall = false;
-    notifyListeners();
+
+    try {
+      _crops = await _fertilizerRepo.getCrops();
+      if (!_isCropTypeLocked && _crops.isNotEmpty && !_crops.contains(_cropType)) {
+        _cropType = _crops.first;
+      }
+    } catch (e) {
+      _errorMessage = '$e'.replaceAll('Exception: ', '');
+    } finally {
+      _isFetchingCrops = false;
+      notifyListeners();
+    }
   }
 
   Future<void> predictFertilizer() async {
@@ -127,19 +142,18 @@ class FertilizerController extends ChangeNotifier {
 
     try {
       final request = FertilizerRequestModel(
-        cropType: _cropType,
-        soilType: _soilType,
         nitrogen: _nitrogen,
         phosphorus: _phosphorus,
         potassium: _potassium,
         ph: _ph,
-        temperature: _temperature,
-        humidity: _humidity,
-        rainfall: _rainfall,
+        cropName: _cropType.toLowerCase(),
+        latitude: _selectedLocation.latitude,
+        longitude: _selectedLocation.longitude,
+        season: _selectedSeason,
       );
       _predictionResult = await _fertilizerRepo.predictFertilizer(request);
     } catch (e) {
-      _errorMessage = 'Failed to fetch fertilizer prediction: $e';
+      _errorMessage = '$e'.replaceAll('Exception: ', '');
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -149,10 +163,8 @@ class FertilizerController extends ChangeNotifier {
   void saveToHistory() {
     if (_predictionResult == null) return;
 
-    // Check if there is an existing history item for this crop prediction we just made, and attach the fertilizer details to it.
-    // If not, we can create a new record.
     final existingIndex = MockDatabase.historyList.indexWhere(
-      (item) => item.cropName == _cropType && item.recommendedFertilizer == null,
+      (item) => item.cropName.toLowerCase() == _cropType.toLowerCase() && item.recommendedFertilizer == null,
     );
 
     if (existingIndex != -1) {
@@ -166,13 +178,13 @@ class FertilizerController extends ChangeNotifier {
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         cropName: _cropType,
         confidenceScore: 0.92,
-        date: '25 Jul 2026 • 02:05 PM',
+        date: '26 Jul 2026 • 07:16 PM',
         nitrogen: _nitrogen,
         phosphorus: _phosphorus,
         potassium: _potassium,
         ph: _ph,
-        temperature: _temperature,
-        rainfall: _rainfall,
+        temperature: _predictionResult!.climateData.temperature,
+        rainfall: _predictionResult!.climateData.rainfall,
         recommendedFertilizer: _predictionResult!.recommendedFertilizer,
         fertilizerDosage: _predictionResult!.dosage,
       );

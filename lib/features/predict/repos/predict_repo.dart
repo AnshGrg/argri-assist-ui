@@ -1,8 +1,35 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import '../../../core/constants/api_endpoints.dart';
 import '../models/predict_request_model.dart';
 import '../models/prediction_result_model.dart';
 
 abstract class PredictRepo {
   Future<PredictionResultModel> predictCrop(PredictRequestModel request);
+}
+
+class HttpPredictRepo implements PredictRepo {
+  @override
+  Future<PredictionResultModel> predictCrop(PredictRequestModel request) async {
+    try {
+      final response = await http.post(
+        Uri.parse(ApiEndpoints.predictCrop),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(request.toJson()),
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+        return PredictionResultModel.fromJson(decoded);
+      } else {
+        throw Exception('Server returned status code: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception(
+        'Failed to connect to backend server. Please verify if the API is running locally.\nDetails: $e'
+      );
+    }
+  }
 }
 
 class MockPredictRepo implements PredictRepo {
@@ -11,12 +38,36 @@ class MockPredictRepo implements PredictRepo {
     // Simulate API call delay
     await Future.delayed(const Duration(seconds: 1));
 
-    // Return Maize as in the wireframe result with a 92% confidence score
-    return const PredictionResultModel(
-      cropName: 'Maize',
-      confidenceScore: 0.92,
-      description: 'Maize is well-suited for your soil conditions and current weather.',
-      imageUrl: 'assets/images/maize.png',
-    );
+    // Return Rice matching the new response JSON structure
+    return PredictionResultModel.fromJson(const {
+      "status": "success",
+      "data": {
+        "recommended_crop": "rice",
+        "confidence": 99.85,
+        "alternative_crops": [
+          {
+            "crop": "jute",
+            "confidence": 0.13
+          },
+          {
+            "crop": "watermelon",
+            "confidence": 0.0
+          },
+          {
+            "crop": "papaya",
+            "confidence": 0.0
+          }
+        ],
+        "climate_data": {
+          "temperature": 22.95,
+          "humidity": 85.17,
+          "rainfall": 828.9,
+          "season": "Monsoon",
+          "source": "NASA POWER 2025 API (Mocked)"
+        },
+        "explanation": "Rice matches your soil NPK composition (N:90.0, P:42.0, K:43.0). For the Monsoon season, NASA 2025 API data shows an average temperature of 22.95°C, humidity of 85.17%, and seasonal rainfall of 828.9mm. Soil pH of 6.5 is neutral and well-suited for nutrient absorption. (Mocked response)",
+        "advice": "High seasonal rainfall. Ensure proper field drainage."
+      }
+    });
   }
 }

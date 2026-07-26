@@ -5,12 +5,21 @@ import '../../../core/constants/app_sizes.dart';
 import '../../../core/widgets/glass_card.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../../core/widgets/secondary_button.dart';
+import '../../predict_fertilizer/controllers/fertilizer_controller.dart';
+import '../../predict_fertilizer/repos/fertilizer_repo.dart';
+import '../../predict_fertilizer/views/predict_fertilizer_screen.dart';
+import '../controllers/predict_controller.dart';
 import '../models/prediction_result_model.dart';
 
 class PredictCropResultScreen extends StatelessWidget {
+  final PredictController controller;
   final PredictionResultModel result;
 
-  const PredictCropResultScreen({super.key, required this.result});
+  const PredictCropResultScreen({
+    super.key,
+    required this.controller,
+    required this.result,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -46,8 +55,16 @@ class PredictCropResultScreen extends StatelessWidget {
                     child: Column(
                       children: [
                         _buildResultCard(context),
-                        AppSizes.spaceXl,
+                        AppSizes.spaceM,
+                        if (result.alternativeCrops.isNotEmpty) ...[
+                          _buildAlternativeCropsCard(context),
+                          AppSizes.spaceM,
+                        ],
+                        _buildClimateDataCard(context),
+                        AppSizes.spaceM,
                         _buildDescriptionCard(context),
+                        AppSizes.spaceM,
+                        _buildAdviceCard(context),
                         AppSizes.spaceXl,
                         _buildActionButtons(context),
                         AppSizes.spaceL,
@@ -87,7 +104,6 @@ class PredictCropResultScreen extends StatelessWidget {
                   color: AppColors.textDark,
                 ),
           ),
-          // Empty space to balance the back button
           const SizedBox(width: AppSizes.iconExtraLarge),
         ],
       ),
@@ -95,41 +111,43 @@ class PredictCropResultScreen extends StatelessWidget {
   }
 
   Widget _buildResultCard(BuildContext context) {
-    // Styling the crop illustration avatar
     Color cropIconColor = Colors.orangeAccent;
     IconData cropIcon = Icons.grain_rounded;
 
-    if (result.cropName.toLowerCase() == 'maize') {
-      cropIcon = Icons.wb_twilight_rounded; // stylized seed/maize look
+    final cropLower = result.recommendedCrop.toLowerCase();
+    if (cropLower == 'maize') {
+      cropIcon = Icons.wb_twilight_rounded;
       cropIconColor = Colors.amber;
-    } else if (result.cropName.toLowerCase() == 'rice') {
+    } else if (cropLower == 'rice') {
       cropIcon = Icons.eco;
       cropIconColor = Colors.green;
+    } else if (cropLower == 'jute') {
+      cropIcon = Icons.grass;
+      cropIconColor = Colors.lightGreen;
     }
 
     return GlassCard(
       padding: const EdgeInsets.symmetric(
-        vertical: AppSizes.xxl,
-        horizontal: AppSizes.xl,
+        vertical: AppSizes.xl,
+        horizontal: AppSizes.l,
       ),
       child: Column(
         children: [
-          // Styled Crop Image Container
           Container(
-            width: 140,
-            height: 140,
+            width: 110,
+            height: 110,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
                 color: AppColors.primaryGreen,
-                width: 3.0,
+                width: 2.5,
               ),
               color: AppColors.lightGreen,
               boxShadow: [
                 BoxShadow(
                   color: AppColors.primaryGreen.withValues(alpha: 0.15),
-                  blurRadius: 12,
-                  spreadRadius: 2,
+                  blurRadius: 10,
+                  spreadRadius: 1,
                 ),
               ],
             ),
@@ -137,13 +155,13 @@ class PredictCropResultScreen extends StatelessWidget {
               child: Center(
                 child: Icon(
                   cropIcon,
-                  size: 72,
+                  size: 56,
                   color: cropIconColor,
                 ),
               ),
             ),
           ),
-          AppSizes.spaceL,
+          AppSizes.spaceM,
           Text(
             'Best Crop for Your Field',
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
@@ -151,15 +169,15 @@ class PredictCropResultScreen extends StatelessWidget {
                   fontWeight: FontWeight.w500,
                 ),
           ),
-          AppSizes.spaceS,
+          AppSizes.spaceXs,
           Text(
-            result.cropName,
-            style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+            result.recommendedCrop.toUpperCase(),
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                   color: AppColors.primaryGreen,
                   fontWeight: FontWeight.bold,
                 ),
           ),
-          AppSizes.spaceL,
+          AppSizes.spaceM,
           Text(
             'Confidence Score',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -169,22 +187,138 @@ class PredictCropResultScreen extends StatelessWidget {
           ),
           AppSizes.spaceXs,
           Text(
-            '${(result.confidenceScore * 100).toInt()}%',
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+            '${result.confidence.toStringAsFixed(2)}%',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   color: AppColors.primaryGreen,
                   fontWeight: FontWeight.bold,
                 ),
           ),
-          AppSizes.spaceM,
-          // Progress Bar
+          AppSizes.spaceS,
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
             child: LinearProgressIndicator(
-              value: result.confidenceScore,
-              minHeight: 10,
+              value: result.confidence / 100.0,
+              minHeight: 8,
               backgroundColor: AppColors.white.withValues(alpha: 0.4),
               valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primaryGreen),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAlternativeCropsCard(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSizes.l),
+      decoration: BoxDecoration(
+        color: AppColors.white.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(AppSizes.radiusLarge),
+        border: Border.all(
+          color: AppColors.white.withValues(alpha: 0.8),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Alternative Crops',
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textDark,
+                ),
+          ),
+          AppSizes.spaceS,
+          ...result.alternativeCrops.map((alt) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSizes.xs),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    alt.crop.toUpperCase(),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                  Text(
+                    '${alt.confidence.toStringAsFixed(2)}%',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primaryGreen,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildClimateDataCard(BuildContext context) {
+    final climate = result.climateData;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSizes.l),
+      decoration: BoxDecoration(
+        color: AppColors.white.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(AppSizes.radiusLarge),
+        border: Border.all(
+          color: AppColors.white.withValues(alpha: 0.8),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Climate Data (${climate.season})',
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textDark,
+                ),
+          ),
+          AppSizes.spaceS,
+          _buildClimateRow('Average Temperature', '${climate.temperature}°C'),
+          const Divider(color: AppColors.glassBorder),
+          _buildClimateRow('Humidity', '${climate.humidity}%'),
+          const Divider(color: AppColors.glassBorder),
+          _buildClimateRow('Seasonal Rainfall', '${climate.rainfall} mm'),
+          AppSizes.spaceS,
+          Align(
+            alignment: Alignment.bottomRight,
+            child: Text(
+              'Source: ${climate.source}',
+              style: const TextStyle(
+                fontSize: 10,
+                fontStyle: FontStyle.italic,
+                color: AppColors.textLight,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildClimateRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSizes.xs),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(color: AppColors.textMedium, fontWeight: FontWeight.w500),
+          ),
+          Text(
+            value,
+            style: const TextStyle(color: AppColors.textDark, fontWeight: FontWeight.bold),
           ),
         ],
       ),
@@ -201,13 +335,6 @@ class PredictCropResultScreen extends StatelessWidget {
           color: AppColors.white.withValues(alpha: 0.8),
           width: 1,
         ),
-        boxShadow: const [
-          BoxShadow(
-            color: AppColors.cardShadow,
-            blurRadius: 6,
-            offset: Offset(0, 2),
-          ),
-        ],
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -226,14 +353,81 @@ class PredictCropResultScreen extends StatelessWidget {
           ),
           const SizedBox(width: AppSizes.m),
           Expanded(
-            child: Text(
-              result.description,
-              style: const TextStyle(
-                color: AppColors.textMedium,
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                height: 1.4,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Explanation',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textDark,
+                  ),
+                ),
+                const SizedBox(height: AppSizes.xs),
+                Text(
+                  result.explanation,
+                  style: const TextStyle(
+                    color: AppColors.textMedium,
+                    fontSize: 13,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAdviceCard(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSizes.l),
+      decoration: BoxDecoration(
+        color: AppColors.primaryGreen.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(AppSizes.radiusLarge),
+        border: Border.all(
+          color: AppColors.primaryGreen.withValues(alpha: 0.15),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(AppSizes.s),
+            decoration: BoxDecoration(
+              color: Colors.amber.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.info_outline_rounded,
+              color: AppColors.primaryGreen,
+              size: AppSizes.iconLarge,
+            ),
+          ),
+          const SizedBox(width: AppSizes.m),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Agricultural Advice',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textDark,
+                  ),
+                ),
+                const SizedBox(height: AppSizes.xs),
+                Text(
+                  result.advice,
+                  style: const TextStyle(
+                    color: AppColors.textMedium,
+                    fontSize: 13,
+                    height: 1.4,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -248,14 +442,31 @@ class PredictCropResultScreen extends StatelessWidget {
           text: 'Continue to Fertilizer Prediction',
           icon: Icons.arrow_forward_rounded,
           onPressed: () {
-            // Future navigation to Fertilizer Prediction screen
+            final fertilizerController = FertilizerController(
+              fertilizerRepo: HttpFertilizerRepo(),
+            );
+            fertilizerController.prefillFromCropResult(
+              crop: result.recommendedCrop,
+              n: controller.nitrogen,
+              p: controller.phosphorus,
+              k: controller.potassium,
+              phVal: controller.ph,
+              location: controller.selectedLocation,
+              season: controller.selectedSeason,
+            );
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => PredictFertilizerScreen(
+                  controller: fertilizerController,
+                ),
+              ),
+            );
           },
         ),
         AppSizes.spaceM,
         SecondaryButton(
           text: 'Skip / Back to Home',
           onPressed: () {
-            // Pop back to root dashboard (main.dart screen)
             Navigator.of(context).popUntil((route) => route.isFirst);
           },
         ),
