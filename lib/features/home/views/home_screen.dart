@@ -16,12 +16,27 @@ import '../../history/views/history_screen.dart';
 import '../../history/controllers/history_controller.dart';
 import '../../history/views/prediction_details_screen.dart';
 import '../../profile/views/profile_screen.dart';
+import '../../analytics/views/analytics_dashboard_screen.dart';
 import '../../../core/services/mock_database.dart';
+import '../../notifications/controllers/notification_controller.dart';
+import '../../notifications/repos/notification_repo.dart';
+import '../../notifications/views/notification_list_screen.dart';
+import '../../news/controllers/news_controller.dart';
+import '../../news/repos/news_repo.dart';
+import '../../news/repos/subscription_repo.dart';
+import '../../news/views/news_feed_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final HomeController controller;
+  final NotificationController? notificationController;
+  final NewsController? newsController;
 
-  const HomeScreen({super.key, required this.controller});
+  const HomeScreen({
+    super.key,
+    required this.controller,
+    this.notificationController,
+    this.newsController,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -29,13 +44,27 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentNavigationIndex = 0;
+  late final NotificationController _notificationController;
+  late final NewsController _newsController;
 
   @override
   void initState() {
     super.initState();
-    // Fetch initial data
+    _notificationController = widget.notificationController ??
+        NotificationController(
+          notificationRepo: MockNotificationRepo(),
+        );
+    _newsController = widget.newsController ??
+        NewsController(
+          newsRepo: MockNewsRepo(),
+          subscriptionRepo: MockSubscriptionRepo(),
+        );
+
+    // Fetch initial dashboard data & start periodic notification polling
     widget.controller.loadDashboardData();
+    _notificationController.startPolling();
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -139,8 +168,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     _buildActionHeading(context),
                     AppSizes.spaceM,
                     _buildActionCards(context),
+                    AppSizes.spaceL,
+                    _buildNewsCardBanner(context),
                     AppSizes.spaceXl,
                     _buildHistoryHeader(context),
+
                     AppSizes.spaceM,
                     _buildHistoryList(context, history),
                   ],
@@ -186,30 +218,76 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
-        Stack(
+        Row(
           children: [
             IconButton(
               icon: const Icon(
-                Icons.notifications_none_rounded,
+                Icons.analytics_rounded,
                 size: AppSizes.iconLarge,
                 color: AppColors.primaryGreen,
               ),
+              tooltip: 'Admin Analytics Dashboard',
               onPressed: () {
-                // Future notification screen implementation
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const AnalyticsDashboardScreen(),
+                  ),
+                );
               },
             ),
-            Positioned(
-              right: 12,
-              top: 10,
-              child: Container(
-                width: 8,
-                height: 8,
-                decoration: const BoxDecoration(
-                  color: AppColors.notificationDot,
-                  shape: BoxShape.circle,
-                ),
-              ),
+            AnimatedBuilder(
+              animation: _notificationController,
+              builder: (context, _) {
+                final unread = _notificationController.unreadCount;
+                return Stack(
+                  children: [
+                    IconButton(
+                      icon: const Icon(
+                        Icons.notifications_none_rounded,
+                        size: AppSizes.iconLarge,
+                        color: AppColors.primaryGreen,
+                      ),
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => NotificationListScreen(
+                              controller: _notificationController,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    if (unread > 0)
+                      Positioned(
+                        right: 8,
+                        top: 8,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: AppColors.notificationDot,
+                            shape: BoxShape.circle,
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 16,
+                            minHeight: 16,
+                          ),
+                          child: Center(
+                            child: Text(
+                              '$unread',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
             ),
+
           ],
         ),
       ],
@@ -423,7 +501,65 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildNewsCardBanner(BuildContext context) {
+    return GlassCard(
+      padding: const EdgeInsets.all(AppSizes.l),
+      child: InkWell(
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => NewsFeedScreen(controller: _newsController),
+            ),
+          );
+        },
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(AppSizes.m),
+              decoration: BoxDecoration(
+                color: AppColors.primaryGreen.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.newspaper_rounded,
+                color: AppColors.primaryGreen,
+                size: AppSizes.iconLarge,
+              ),
+            ),
+            AppSizes.spaceM,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Agri News & Advisories',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textDark,
+                        ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Pest warnings, weather advisories & government subsidy notices.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textMedium,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.primaryGreen,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildHistoryHeader(BuildContext context) {
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [

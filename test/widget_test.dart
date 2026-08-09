@@ -20,7 +20,8 @@ void main() {
     // Build our app and trigger a frame.
     await tester.pumpWidget(MyApp(homeController: homeController));
 
-    // Verify loading indicator or some default texts are shown.
+    // Verify loading indicator or initial state
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    await tester.pump(const Duration(seconds: 1));
   });
 }

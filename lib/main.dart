@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'core/theme/app_theme.dart';
+import 'features/analytics/views/analytics_dashboard_screen.dart';
 import 'features/home/controllers/home_controller.dart';
 import 'features/home/repos/home_repo.dart';
 import 'features/home/views/home_screen.dart';
@@ -23,7 +25,9 @@ class MyApp extends StatelessWidget {
       title: 'AgriAssist',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      home: HomeScreen(controller: homeController),
+      home: kIsWeb
+          ? const AnalyticsDashboardScreen()
+          : HomeScreen(controller: homeController),
     );
   }
 }
