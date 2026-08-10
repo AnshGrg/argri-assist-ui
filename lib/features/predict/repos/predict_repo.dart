@@ -5,16 +5,31 @@ import '../models/predict_request_model.dart';
 import '../models/prediction_result_model.dart';
 
 abstract class PredictRepo {
-  Future<PredictionResultModel> predictCrop(PredictRequestModel request);
+  Future<PredictionResultModel> predictCrop(PredictRequestModel request, {String? token});
 }
 
 class HttpPredictRepo implements PredictRepo {
+  Map<String, String> _headers(String? token) {
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+      'ngrok-skip-browser-warning': 'true',
+    };
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+    return headers;
+  }
+
   @override
-  Future<PredictionResultModel> predictCrop(PredictRequestModel request) async {
+  Future<PredictionResultModel> predictCrop(PredictRequestModel request, {String? token}) async {
+    final uri = Uri.parse(ApiEndpoints.predictCrop);
+    String? lastError;
+
+    // 1. Try POST request with Bearer Auth header
     try {
       final response = await http.post(
-        Uri.parse(ApiEndpoints.predictCrop),
-        headers: {'Content-Type': 'application/json'},
+        uri,
+        headers: _headers(token),
         body: jsonEncode(request.toJson()),
       ).timeout(const Duration(seconds: 10));
 
@@ -22,19 +37,37 @@ class HttpPredictRepo implements PredictRepo {
         final decoded = jsonDecode(response.body) as Map<String, dynamic>;
         return PredictionResultModel.fromJson(decoded);
       } else {
-        throw Exception('Server returned status code: ${response.statusCode}');
+        lastError = 'Server error (${response.statusCode}): ${response.body}';
       }
     } catch (e) {
-      throw Exception(
-        'Failed to connect to backend server. Please verify if the API is running locally.\nDetails: $e'
-      );
+      lastError = 'Network error: $e';
     }
+
+    // 2. Retry without Bearer token if auth 401/403 or CORS error occurs
+    try {
+      final response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true'},
+        body: jsonEncode(request.toJson()),
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+        return PredictionResultModel.fromJson(decoded);
+      } else {
+        lastError = 'Server error (${response.statusCode}): ${response.body}';
+      }
+    } catch (e) {
+      lastError = 'Network error: $e';
+    }
+
+    throw Exception(lastError);
   }
 }
 
 class MockPredictRepo implements PredictRepo {
   @override
-  Future<PredictionResultModel> predictCrop(PredictRequestModel request) async {
+  Future<PredictionResultModel> predictCrop(PredictRequestModel request, {String? token}) async {
     // Simulate API call delay
     await Future.delayed(const Duration(seconds: 1));
 

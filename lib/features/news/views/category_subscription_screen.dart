@@ -22,8 +22,10 @@ class _CategorySubscriptionScreenState extends State<CategorySubscriptionScreen>
   @override
   void initState() {
     super.initState();
-    widget.controller.fetchCategories();
-    widget.controller.fetchSubscriptions();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      widget.controller.fetchCategories();
+      widget.controller.fetchSubscriptions();
+    });
   }
 
   @override
@@ -167,25 +169,78 @@ class _CategorySubscriptionScreenState extends State<CategorySubscriptionScreen>
               ],
             ),
           ),
-          Switch.adaptive(
-            value: isSubscribed,
-            activeTrackColor: AppColors.primaryGreen,
-            onChanged: (val) async {
-
-              final success = await widget.controller.toggleSubscription(category.id);
-              if (!success && mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(widget.controller.errorMessage ?? 'Failed to update subscription'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              }
-            },
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (isSubscribed)
+                IconButton(
+                  icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+                  tooltip: 'Unsubscribe',
+                  onPressed: () => _confirmUnsubscribe(category),
+                ),
+              Switch.adaptive(
+                value: isSubscribed,
+                activeTrackColor: AppColors.primaryGreen,
+                onChanged: (val) async {
+                  if (!val) {
+                    _confirmUnsubscribe(category);
+                  } else {
+                    _toggleSub(category.id);
+                  }
+                },
+              ),
+            ],
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _confirmUnsubscribe(NewsCategoryModel category) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: AppColors.backgroundGreen,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: const [
+            Icon(Icons.notifications_off_rounded, color: Colors.redAccent),
+            SizedBox(width: 8),
+            Text('Unsubscribe', style: TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(
+          'Are you sure you want to unsubscribe from "${category.name}"? You will stop receiving in-app advisory notifications for this topic.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            onPressed: () => Navigator.pop(dialogCtx, true),
+            child: const Text('Unsubscribe', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      _toggleSub(category.id);
+    }
+  }
+
+  Future<void> _toggleSub(int categoryId) async {
+    final success = await widget.controller.toggleSubscription(categoryId);
+    if (!success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(widget.controller.errorMessage ?? 'Failed to update subscription'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   IconData _getCategoryIcon(String categoryName) {

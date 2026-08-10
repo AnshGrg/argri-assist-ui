@@ -1,14 +1,16 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'core/theme/app_theme.dart';
-import 'features/analytics/views/analytics_dashboard_screen.dart';
+import 'features/auth/views/admin_login_screen.dart';
 import 'features/home/controllers/home_controller.dart';
 import 'features/home/repos/home_repo.dart';
 import 'features/home/views/home_screen.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+
   // Set up repo and controller instances
-  final homeRepo = MockHomeRepo();
+  final homeRepo = OpenMeteoHomeRepo();
   final homeController = HomeController(homeRepo: homeRepo);
 
   runApp(MyApp(homeController: homeController));
@@ -26,7 +28,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       home: kIsWeb
-          ? const AnalyticsDashboardScreen()
+          ? const AdminLoginScreen()
           : HomeScreen(controller: homeController),
     );
   }

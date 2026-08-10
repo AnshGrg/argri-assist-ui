@@ -1,15 +1,22 @@
+// ignore_for_file: deprecated_member_use
+
 import 'dart:math';
+import 'dart:typed_data';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_sizes.dart';
+import '../../../core/utils/image_picker_service.dart';
 import '../../../core/widgets/glass_card.dart';
 import '../controllers/analytics_controller.dart';
 import '../models/crop_distribution_model.dart';
 import '../models/fertilizer_demand_model.dart';
-import '../../home/views/home_screen.dart';
-import '../../home/controllers/home_controller.dart';
-import '../../home/repos/home_repo.dart';
+import '../../news/controllers/news_controller.dart';
+import '../../news/models/news_article_model.dart';
+import '../../news/repos/news_repo.dart';
+import '../../news/repos/subscription_repo.dart';
+import '../../news/views/create_news_article_screen.dart';
+import '../../news/views/news_detail_screen.dart';
 
 class AnalyticsDashboardScreen extends StatefulWidget {
   final AnalyticsController? controller;
@@ -27,12 +34,43 @@ class AnalyticsDashboardScreen extends StatefulWidget {
 
 class _AnalyticsDashboardScreenState extends State<AnalyticsDashboardScreen> {
   late final AnalyticsController _controller;
+  late final NewsController _newsController;
+
+  List<NewsArticleModel> _adminNewsArticles = [];
+  bool _isLoadingNews = false;
+  String _newsFilter = 'ALL';
+  String _newsSearchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _controller = widget.controller ?? AnalyticsController();
-    _controller.fetchAnalyticsData(token: widget.authToken);
+
+    _newsController = NewsController(
+      newsRepo: HttpNewsRepo(),
+      subscriptionRepo: HttpSubscriptionRepo(),
+      userToken: widget.authToken,
+    );
+    if (widget.authToken != null && widget.authToken!.isNotEmpty) {
+      _newsController.setAdminToken(widget.authToken);
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _controller.fetchAnalyticsData(token: widget.authToken);
+      _newsController.fetchCategories();
+      _loadAdminNews();
+    });
+  }
+
+  Future<void> _loadAdminNews() async {
+    setState(() => _isLoadingNews = true);
+    final list = await _newsController.fetchAdminNewsList();
+    if (mounted) {
+      setState(() {
+        _adminNewsArticles = list;
+        _isLoadingNews = false;
+      });
+    }
   }
 
   @override
@@ -191,19 +229,6 @@ class _AnalyticsDashboardScreenState extends State<AnalyticsDashboardScreen> {
             tooltip: 'Refresh Analytics',
             onPressed: () => _controller.fetchAnalyticsData(token: widget.authToken),
           ),
-          IconButton(
-            icon: const Icon(Icons.phone_android_rounded, color: AppColors.primaryGreen),
-            tooltip: 'Switch to Farmer App View',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => HomeScreen(
-                    controller: HomeController(homeRepo: MockHomeRepo()),
-                  ),
-                ),
-              );
-            },
-          ),
         ],
       ),
     );
@@ -217,6 +242,7 @@ class _AnalyticsDashboardScreenState extends State<AnalyticsDashboardScreen> {
       _TabItem(title: 'System Overview', route: '/admin/dashboard', icon: Icons.dashboard_rounded),
       _TabItem(title: 'Soil & Fertilizer', route: '/admin/soil-health', icon: Icons.science_rounded),
       _TabItem(title: 'Crop & Climate Intelligence', route: '/admin/crop-intelligence', icon: Icons.eco_rounded),
+      _TabItem(title: 'News & Advisories', route: '/admin/news', icon: Icons.newspaper_rounded),
     ];
 
     return Container(
@@ -337,6 +363,8 @@ class _AnalyticsDashboardScreenState extends State<AnalyticsDashboardScreen> {
         return _buildPage2SoilAndFertilizer(context, isDesktop);
       case 2:
         return _buildPage3CropAndClimate(context, isDesktop);
+      case 3:
+        return _buildPage4NewsManagement(context, isDesktop);
       case 0:
       default:
         return _buildPage1SystemOverview(context, isDesktop);
@@ -679,93 +707,12 @@ class _AnalyticsDashboardScreenState extends State<AnalyticsDashboardScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (isDesktop) ...[
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                flex: 3,
-                child: _buildSoilPhSpectrumCard(context),
-              ),
-              const SizedBox(width: AppSizes.l),
-              Expanded(
-                flex: 2,
-                child: _buildNpkDeficiencyCard(context, kpi),
-              ),
-            ],
-          ),
-        ] else ...[
-          _buildSoilPhSpectrumCard(context),
-          AppSizes.spaceXl,
-          _buildNpkDeficiencyCard(context, kpi),
-        ],
+        _buildNpkDeficiencyCard(context, kpi),
         AppSizes.spaceXl,
         _buildSoilAcidityHotspotsCard(context),
         AppSizes.spaceXl,
         _buildFertilizerDemandCard(context),
         AppSizes.spaceXl,
-      ],
-    );
-  }
-
-  Widget _buildSoilPhSpectrumCard(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.all(AppSizes.l),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'National Soil pH Spectrum',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textDark,
-                ),
-          ),
-          Text(
-            'Extremely Acidic vs Moderately Acidic vs Neutral vs Alkaline',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.textMedium,
-                ),
-          ),
-          AppSizes.spaceL,
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildPhSpectrumTile('Extremely Acidic\n(< 5.0)', '28.4%', Colors.red.shade700),
-              _buildPhSpectrumTile('Moderately Acidic\n(5.0 - 6.0)', '41.2%', Colors.orange.shade700),
-              _buildPhSpectrumTile('Neutral\n(6.0 - 7.5)', '24.1%', AppColors.primaryGreen),
-              _buildPhSpectrumTile('Alkaline\n(> 7.5)', '6.3%', Colors.blue.shade700),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPhSpectrumTile(String label, String percent, Color color) {
-    return Column(
-      children: [
-        Container(
-          width: 54,
-          height: 54,
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.15),
-            shape: BoxShape.circle,
-            border: Border.all(color: color, width: 2),
-          ),
-          child: Center(
-            child: Text(
-              percent,
-              style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 11),
-            ),
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          label,
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.textDark),
-        ),
       ],
     );
   }
@@ -1140,21 +1087,12 @@ class _AnalyticsDashboardScreenState extends State<AnalyticsDashboardScreen> {
           _buildCropDistributionCard(context),
         ],
         AppSizes.spaceXl,
-        _buildNasaClimateCards(context),
-        AppSizes.spaceXl,
       ],
     );
   }
 
   Widget _buildTopRecommendedCropsCard(BuildContext context) {
-    final topCropsList = [
-      _CropRankData(rank: 1, name: 'Rice', queries: 1420, confidence: 98.4),
-      _CropRankData(rank: 2, name: 'Maize', queries: 890, confidence: 96.1),
-      _CropRankData(rank: 3, name: 'Chickpea', queries: 650, confidence: 94.8),
-      _CropRankData(rank: 4, name: 'Lentil', queries: 520, confidence: 93.2),
-      _CropRankData(rank: 5, name: 'Jute', queries: 510, confidence: 91.5),
-      _CropRankData(rank: 6, name: 'Watermelon', queries: 480, confidence: 90.0),
-    ];
+    final topCropsList = _controller.topCropsLeaderboard;
 
     return GlassCard(
       padding: const EdgeInsets.all(AppSizes.l),
@@ -1175,55 +1113,61 @@ class _AnalyticsDashboardScreenState extends State<AnalyticsDashboardScreen> {
                 ),
           ),
           AppSizes.spaceL,
-          Column(
-            children: topCropsList.map((item) {
-              return Container(
-                margin: const EdgeInsets.only(bottom: 8.0),
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppColors.white.withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 12,
-                      backgroundColor: item.rank == 1
-                          ? Colors.amber.shade700
-                          : (item.rank == 2 ? Colors.grey.shade600 : AppColors.primaryGreen),
-                      child: Text(
-                        '${item.rank}',
-                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+          if (topCropsList.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(24.0),
+              child: Center(child: Text('No crop leaderboard data available')),
+            )
+          else
+            Column(
+              children: topCropsList.map((item) {
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8.0),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.white.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 12,
+                        backgroundColor: item.rank == 1
+                            ? Colors.amber.shade700
+                            : (item.rank == 2 ? Colors.grey.shade600 : AppColors.primaryGreen),
+                        child: Text(
+                          '${item.rank}',
+                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        item.name,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          item.cropName.toUpperCase(),
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
                       ),
-                    ),
-                    Text(
-                      '${item.queries} queries',
-                      style: const TextStyle(fontSize: 12, color: AppColors.textMedium),
-                    ),
-                    const SizedBox(width: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppColors.lightGreen,
-                        borderRadius: BorderRadius.circular(10),
+                      Text(
+                        '${item.totalRecommendations} queries',
+                        style: const TextStyle(fontSize: 12, color: AppColors.textMedium),
                       ),
-                      child: Text(
-                        '${item.confidence}% conf.',
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primaryGreen),
+                      const SizedBox(width: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.lightGreen,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '${item.avgConfidencePct.toStringAsFixed(1)}% conf.',
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primaryGreen),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
-          ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
         ],
       ),
     );
@@ -1357,100 +1301,6 @@ class _AnalyticsDashboardScreenState extends State<AnalyticsDashboardScreen> {
     );
   }
 
-  Widget _buildNasaClimateCards(BuildContext context) {
-    final climateList = _controller.climateDataList;
-
-    return GlassCard(
-      padding: const EdgeInsets.all(AppSizes.l),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Regional NASA Satellite Climate Averages',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textDark,
-                        ),
-                  ),
-                  Text(
-                    'Live satellite parameters fetched from NASA POWER',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.textMedium,
-                        ),
-                  ),
-                ],
-              ),
-              const Icon(Icons.wb_sunny_outlined, color: AppColors.primaryGreen),
-            ],
-          ),
-          AppSizes.spaceL,
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-              maxCrossAxisExtent: 300,
-              crossAxisSpacing: AppSizes.m,
-              mainAxisSpacing: AppSizes.m,
-              childAspectRatio: 1.8,
-            ),
-            itemCount: climateList.length,
-            itemBuilder: (context, index) {
-              final item = climateList[index];
-              return Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.white.withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.white.withValues(alpha: 0.8)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.location_on_outlined, color: AppColors.primaryGreen, size: 16),
-                        const SizedBox(width: 4),
-                        Text(
-                          item.city,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                        ),
-                      ],
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        _buildClimateParam(Icons.thermostat_rounded, '${item.averageTemperature}°C', 'Temp', Colors.orange),
-                        _buildClimateParam(Icons.water_drop_rounded, '${item.averageHumidity}%', 'Humidity', Colors.blue),
-                        _buildClimateParam(Icons.grain_rounded, '${item.averageRainfall}mm', 'Rainfall', AppColors.primaryGreen),
-                      ],
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildClimateParam(IconData icon, String val, String label, Color color) {
-    return Column(
-      children: [
-        Icon(icon, color: color, size: 16),
-        Text(val, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-        Text(label, style: const TextStyle(fontSize: 10, color: AppColors.textMedium)),
-      ],
-    );
-  }
-
   Widget _buildLegendIndicator(String label, Color color) {
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -1470,6 +1320,585 @@ class _AnalyticsDashboardScreenState extends State<AnalyticsDashboardScreen> {
         ),
       ],
     );
+  }
+
+  List<NewsArticleModel> get _filteredAdminNews {
+    return _adminNewsArticles.where((article) {
+      final statusUpper = article.status.toUpperCase();
+      final matchesFilter = _newsFilter == 'ALL' ||
+          (_newsFilter == 'PUBLISHED' && statusUpper == 'PUBLISHED') ||
+          (_newsFilter == 'DRAFT' && statusUpper == 'DRAFT');
+      final matchesSearch = _newsSearchQuery.isEmpty ||
+          article.title.toLowerCase().contains(_newsSearchQuery.toLowerCase()) ||
+          article.summary.toLowerCase().contains(_newsSearchQuery.toLowerCase()) ||
+          article.category.name.toLowerCase().contains(_newsSearchQuery.toLowerCase());
+      return matchesFilter && matchesSearch;
+    }).toList();
+  }
+
+  // ================= PAGE 4: NEWS & ADVISORIES MANAGEMENT =================
+  Widget _buildPage4NewsManagement(BuildContext context, bool isDesktop) {
+    final filtered = _filteredAdminNews;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GlassCard(
+          padding: const EdgeInsets.all(AppSizes.l),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Agriculture News & Advisories Management',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textDark,
+                              ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Create, edit, publish and delete news articles & farmer advisories',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: AppColors.textMedium,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryGreen,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    icon: const Icon(Icons.add_rounded, color: Colors.white),
+                    label: const Text(
+                      'Post News Article',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                    onPressed: () => _openCreateNewsScreen(context),
+                  ),
+                ],
+              ),
+              AppSizes.spaceL,
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.7),
+                        borderRadius: BorderRadius.circular(30),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.9)),
+                      ),
+                      child: TextField(
+                        onChanged: (val) => setState(() => _newsSearchQuery = val.trim()),
+                        decoration: const InputDecoration(
+                          hintText: 'Search news by title, summary, category...',
+                          prefixIcon: Icon(Icons.search_rounded, color: AppColors.primaryGreen),
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _buildNewsFilterChip('ALL', 'All (${_adminNewsArticles.length})'),
+                        const SizedBox(width: 8),
+                        _buildNewsFilterChip('PUBLISHED', 'Published'),
+                        const SizedBox(width: 8),
+                        _buildNewsFilterChip('DRAFT', 'Drafts'),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  IconButton(
+                    icon: const Icon(Icons.refresh_rounded, color: AppColors.primaryGreen),
+                    tooltip: 'Refresh News',
+                    onPressed: _loadAdminNews,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        AppSizes.spaceXl,
+        if (_isLoadingNews)
+          const Padding(
+            padding: EdgeInsets.all(40),
+            child: Center(child: CircularProgressIndicator(color: AppColors.primaryGreen)),
+          )
+        else if (filtered.isEmpty)
+          GlassCard(
+            padding: const EdgeInsets.all(40),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.newspaper_rounded, size: 64, color: AppColors.textMedium.withValues(alpha: 0.5)),
+                  const SizedBox(height: 16),
+                  Text(
+                    _newsSearchQuery.isNotEmpty
+                        ? 'No articles match "$_newsSearchQuery"'
+                        : 'No articles found in this filter.',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(color: AppColors.textDark),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryGreen),
+                    icon: const Icon(Icons.add_rounded, color: Colors.white),
+                    label: const Text('Post News Article', style: TextStyle(color: Colors.white)),
+                    onPressed: () => _openCreateNewsScreen(context),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final crossCount = constraints.maxWidth > 1000 ? 3 : (constraints.maxWidth > 650 ? 2 : 1);
+
+              return GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossCount,
+                  crossAxisSpacing: AppSizes.l,
+                  mainAxisSpacing: AppSizes.l,
+                  mainAxisExtent: 330,
+                ),
+                itemCount: filtered.length,
+                itemBuilder: (context, index) {
+                  final article = filtered[index];
+                  return _buildNewsCardItem(context, article);
+                },
+              );
+            },
+          ),
+        AppSizes.spaceXl,
+      ],
+    );
+  }
+
+  Widget _buildNewsFilterChip(String value, String label) {
+    final isSelected = _newsFilter == value;
+    return ChoiceChip(
+      showCheckmark: false,
+      label: Text(
+        label,
+        style: TextStyle(
+          color: isSelected ? Colors.white : AppColors.textDark,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+          fontSize: 12,
+        ),
+      ),
+      selected: isSelected,
+      selectedColor: AppColors.primaryGreen,
+      backgroundColor: AppColors.white.withValues(alpha: 0.6),
+      onSelected: (_) => setState(() => _newsFilter = value),
+    );
+  }
+
+  Widget _buildNewsCardItem(BuildContext context, NewsArticleModel article) {
+    final isPublished = article.status == 'PUBLISHED';
+    final dateStr = article.publishedAt != null
+        ? '${article.publishedAt!.day}/${article.publishedAt!.month}/${article.publishedAt!.year}'
+        : (article.createdAt != null ? '${article.createdAt!.day}/${article.createdAt!.month}/${article.createdAt!.year}' : '');
+
+    return GlassCard(
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (article.imageUrl != null && article.imageUrl!.isNotEmpty)
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(AppSizes.radiusLarge)),
+              child: Image.network(
+                article.imageUrl!,
+                height: 120,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  height: 100,
+                  color: AppColors.lightGreen,
+                  child: const Center(child: Icon(Icons.newspaper_rounded, color: AppColors.primaryGreen, size: 36)),
+                ),
+              ),
+            )
+          else
+            Container(
+              height: 100,
+              decoration: BoxDecoration(
+                color: AppColors.primaryGreen.withValues(alpha: 0.1),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(AppSizes.radiusLarge)),
+              ),
+              child: const Center(child: Icon(Icons.article_rounded, color: AppColors.primaryGreen, size: 36)),
+            ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSizes.m),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: isPublished ? Colors.green.shade100 : Colors.orange.shade100,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          article.status,
+                          style: TextStyle(
+                            color: isPublished ? Colors.green.shade900 : Colors.orange.shade900,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.lightGreen,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          article.category.name,
+                          style: const TextStyle(
+                            color: AppColors.primaryGreen,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      if (dateStr.isNotEmpty)
+                        Text(dateStr, style: const TextStyle(fontSize: 11, color: AppColors.textMedium)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    article.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textDark,
+                          height: 1.2,
+                        ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    article.summary,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textMedium,
+                          height: 1.3,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.visibility_outlined, size: 20, color: AppColors.primaryGreen),
+                  tooltip: 'View Details',
+                  onPressed: () => _showViewNewsDialog(context, article),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined, size: 20, color: AppColors.textDark),
+                  tooltip: 'Edit Article',
+                  onPressed: () => _showEditNewsDialog(context, article),
+                ),
+                if (!isPublished)
+                  IconButton(
+                    icon: const Icon(Icons.publish_rounded, size: 20, color: Colors.green),
+                    tooltip: 'Publish Now',
+                    onPressed: () async {
+                      final messenger = ScaffoldMessenger.of(context);
+                      final success = await _newsController.publishAdminArticle(article.id);
+                      messenger.showSnackBar(
+                        SnackBar(content: Text(success ? 'Article published!' : 'Failed to publish.')),
+                      );
+                      if (success) _loadAdminNews();
+                    },
+                  ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline_rounded, size: 20, color: Colors.red),
+                  tooltip: 'Delete Article',
+                  onPressed: () => _confirmDeleteNews(context, article),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openCreateNewsScreen(BuildContext context) async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CreateNewsArticleScreen(controller: _newsController),
+      ),
+    );
+    if (result == true) {
+      _loadAdminNews();
+    }
+  }
+
+  void _showEditNewsDialog(BuildContext context, NewsArticleModel article) {
+    final formKey = GlobalKey<FormState>();
+    final titleController = TextEditingController(text: article.title);
+    final summaryController = TextEditingController(text: article.summary);
+    final contentController = TextEditingController(text: article.content ?? '');
+
+    Uint8List? editImageBytes;
+    String? editImageName;
+
+    int? selectedCategoryId = article.category.id;
+    String status = article.status;
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: AppColors.backgroundGreen,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: const [
+                  Icon(Icons.edit_note_rounded, color: AppColors.primaryGreen),
+                  SizedBox(width: 8),
+                  Text('Edit News Article', style: TextStyle(fontWeight: FontWeight.bold)),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: SizedBox(
+                  width: 500,
+                  child: Form(
+                    key: formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextFormField(
+                          controller: titleController,
+                          decoration: const InputDecoration(
+                            labelText: 'Title *',
+                            border: OutlineInputBorder(),
+                          ),
+                          validator: (val) => val == null || val.trim().isEmpty ? 'Title is required' : null,
+                        ),
+                        AppSizes.spaceS,
+                        TextFormField(
+                          controller: summaryController,
+                          maxLines: 2,
+                          decoration: const InputDecoration(
+                            labelText: 'Summary *',
+                            border: OutlineInputBorder(),
+                          ),
+                          validator: (val) => val == null || val.trim().isEmpty ? 'Summary is required' : null,
+                        ),
+                        AppSizes.spaceS,
+                        TextFormField(
+                          controller: contentController,
+                          maxLines: 4,
+                          decoration: const InputDecoration(
+                            labelText: 'Full Content *',
+                            border: OutlineInputBorder(),
+                          ),
+                          validator: (val) => val == null || val.trim().isEmpty ? 'Content is required' : null,
+                        ),
+                        AppSizes.spaceS,
+
+                        // Image File Picker for Edit
+                        InkWell(
+                          onTap: () async {
+                            final picked = await ImagePickerService.pickImage();
+                            if (picked != null) {
+                              setDialogState(() {
+                                editImageBytes = picked.bytes;
+                                editImageName = picked.name;
+                              });
+                            }
+                          },
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: AppColors.primaryGreen.withValues(alpha: 0.5)),
+                              borderRadius: BorderRadius.circular(8),
+                              color: Colors.white.withValues(alpha: 0.6),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.image_outlined, color: AppColors.primaryGreen),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    editImageName != null
+                                        ? 'New File: $editImageName'
+                                        : (article.imageUrl != null ? 'Current Image Attached' : 'Select Image File (Optional)'),
+                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const Icon(Icons.folder_open_rounded, size: 20, color: AppColors.primaryGreen),
+                              ],
+                            ),
+                          ),
+                        ),
+                        AppSizes.spaceS,
+                        DropdownButtonFormField<int>(
+                          value: (_newsController.categories.any((c) => c.id == selectedCategoryId))
+                              ? selectedCategoryId
+                              : (_newsController.categories.isNotEmpty ? _newsController.categories.first.id : null),
+                          items: _newsController.categories.map((cat) {
+                            return DropdownMenuItem<int>(value: cat.id, child: Text(cat.name));
+                          }).toList(),
+                          onChanged: (val) {
+                            if (val != null) setDialogState(() => selectedCategoryId = val);
+                          },
+                          decoration: const InputDecoration(
+                            labelText: 'Category *',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        AppSizes.spaceS,
+                        DropdownButtonFormField<String>(
+                          initialValue: status,
+                          items: const [
+                            DropdownMenuItem(value: 'PUBLISHED', child: Text('PUBLISHED')),
+                            DropdownMenuItem(value: 'DRAFT', child: Text('DRAFT')),
+                          ],
+                          onChanged: (val) {
+                            if (val != null) setDialogState(() => status = val);
+                          },
+                          decoration: const InputDecoration(
+                            labelText: 'Status',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogCtx),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryGreen,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  icon: const Icon(Icons.save_rounded, size: 18, color: Colors.white),
+                  label: const Text('Save Changes', style: TextStyle(color: AppColors.white)),
+                  onPressed: () async {
+                    if (formKey.currentState?.validate() ?? false) {
+                      Navigator.pop(dialogCtx);
+                      final success = await _newsController.updateAdminArticle(
+                        article.id,
+                        title: titleController.text.trim(),
+                        summary: summaryController.text.trim(),
+                        content: contentController.text.trim(),
+                        categoryId: selectedCategoryId,
+                        imageBytes: editImageBytes,
+                        imageName: editImageName,
+                        status: status,
+                      );
+                      if (mounted) {
+                        ScaffoldMessenger.of(this.context).showSnackBar(
+                          SnackBar(
+                            content: Text(success ? 'Article updated successfully!' : 'Failed to update article.'),
+                            backgroundColor: success ? Colors.green : Colors.red,
+                          ),
+                        );
+                        if (success) _loadAdminNews();
+                      }
+                    }
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showViewNewsDialog(BuildContext context, NewsArticleModel article) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => NewsDetailScreen(
+          initialArticle: article,
+          controller: _newsController,
+        ),
+      ),
+    );
+  }
+
+  void _confirmDeleteNews(BuildContext context, NewsArticleModel article) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: const [
+            Icon(Icons.warning_amber_rounded, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Delete News Article'),
+          ],
+        ),
+        content: Text('Are you sure you want to permanently delete "${article.title}"?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      final success = await _newsController.deleteAdminArticle(article.id);
+      if (mounted) {
+        ScaffoldMessenger.of(this.context).showSnackBar(
+          SnackBar(
+            content: Text(success ? 'Article deleted successfully!' : 'Failed to delete article.'),
+            backgroundColor: success ? Colors.green : Colors.red,
+          ),
+        );
+        if (success) _loadAdminNews();
+      }
+    }
   }
 }
 
@@ -1497,16 +1926,3 @@ class _StatCardData {
   });
 }
 
-class _CropRankData {
-  final int rank;
-  final String name;
-  final int queries;
-  final double confidence;
-
-  _CropRankData({
-    required this.rank,
-    required this.name,
-    required this.queries,
-    required this.confidence,
-  });
-}

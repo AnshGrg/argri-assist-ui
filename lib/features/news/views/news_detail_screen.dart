@@ -7,6 +7,7 @@ import '../models/news_article_model.dart';
 import '../controllers/news_controller.dart';
 import '../repos/news_repo.dart';
 import '../repos/subscription_repo.dart';
+import '../../../core/services/token_storage.dart';
 
 class NewsDetailScreen extends StatefulWidget {
   final int? newsId;
@@ -33,11 +34,25 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _newsController = widget.controller ??
-        NewsController(
-          newsRepo: MockNewsRepo(),
-          subscriptionRepo: MockSubscriptionRepo(),
-        );
+    _initControllerAndLoad();
+  }
+
+  Future<void> _initControllerAndLoad() async {
+    if (widget.controller != null) {
+      _newsController = widget.controller!;
+    } else {
+      String? token;
+      final saved = await TokenStorage.loadTokens();
+      token = saved?.access;
+      _newsController = NewsController(
+        newsRepo: HttpNewsRepo(),
+        subscriptionRepo: HttpSubscriptionRepo(),
+        userToken: token,
+      );
+    }
+
+    // Pre-fetch subscriptions and categories
+    _newsController.fetchSubscriptions();
 
     if (widget.initialArticle != null) {
       _article = widget.initialArticle;
@@ -50,10 +65,12 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
   }
 
   Future<void> _loadDetail(int id) async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+    if (_article == null) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
 
     final result = await _newsController.fetchArticleDetail(id);
     if (mounted) {
@@ -61,7 +78,7 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
         _isLoading = false;
         if (result != null) {
           _article = result;
-        } else {
+        } else if (_article == null) {
           _errorMessage = _newsController.errorMessage ?? 'Failed to load article';
         }
       });
@@ -202,6 +219,87 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
                   fontSize: 12,
                 ),
               ),
+            ),
+            const SizedBox(width: AppSizes.s),
+            AnimatedBuilder(
+              animation: _newsController,
+              builder: (context, _) {
+                final isSubscribed = _newsController.subscribedCategoryIds.contains(_article!.category.id);
+                final isActionLoading = _newsController.isActionLoading;
+
+                return InkWell(
+                  onTap: isActionLoading
+                      ? null
+                      : () async {
+                          final messenger = ScaffoldMessenger.of(context);
+                          final success = await _newsController.toggleSubscription(_article!.category.id);
+                          if (success) {
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  isSubscribed
+                                      ? 'Unsubscribed from ${_article!.category.name}.'
+                                      : 'Subscribed to ${_article!.category.name}!',
+                                ),
+                                backgroundColor: AppColors.primaryGreen,
+                              ),
+                            );
+                          } else {
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text(_newsController.errorMessage ?? 'Subscription action failed.'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        },
+                  borderRadius: BorderRadius.circular(AppSizes.radiusMedium),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: AppSizes.s, vertical: AppSizes.xs),
+                    decoration: BoxDecoration(
+                      color: isSubscribed
+                          ? Colors.grey.withValues(alpha: 0.15)
+                          : AppColors.primaryGreen.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(AppSizes.radiusMedium),
+                      border: Border.all(
+                        color: isSubscribed
+                            ? Colors.grey.withValues(alpha: 0.3)
+                            : AppColors.primaryGreen.withValues(alpha: 0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (isActionLoading)
+                          const SizedBox(
+                            width: 12,
+                            height: 12,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 1.5,
+                              color: AppColors.primaryGreen,
+                            ),
+                          )
+                        else
+                          Icon(
+                            isSubscribed ? Icons.notifications_off_outlined : Icons.notifications_active_outlined,
+                            size: 14,
+                            color: isSubscribed ? AppColors.textMedium : AppColors.primaryGreen,
+                          ),
+                        const SizedBox(width: 4),
+                        Text(
+                          isSubscribed ? 'Subscribed' : 'Subscribe',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: isSubscribed ? AppColors.textMedium : AppColors.primaryGreen,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
             const Spacer(),
             Icon(Icons.calendar_today_rounded, size: 14, color: AppColors.textMedium),

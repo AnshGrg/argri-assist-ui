@@ -16,7 +16,8 @@ import '../../history/views/history_screen.dart';
 import '../../history/controllers/history_controller.dart';
 import '../../history/views/prediction_details_screen.dart';
 import '../../profile/views/profile_screen.dart';
-import '../../analytics/views/analytics_dashboard_screen.dart';
+import '../../auth/controllers/auth_controller.dart';
+import '../../auth/repos/auth_repo.dart';
 import '../../../core/services/mock_database.dart';
 import '../../notifications/controllers/notification_controller.dart';
 import '../../notifications/repos/notification_repo.dart';
@@ -30,41 +31,129 @@ class HomeScreen extends StatefulWidget {
   final HomeController controller;
   final NotificationController? notificationController;
   final NewsController? newsController;
+  final AuthController? authController;
 
   const HomeScreen({
     super.key,
     required this.controller,
     this.notificationController,
     this.newsController,
+    this.authController,
   });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _currentNavigationIndex = 0;
   late final NotificationController _notificationController;
   late final NewsController _newsController;
+  late final AuthController _authController;
+
+  String? get _userToken => _authController.tokens?.access;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _authController = widget.authController ??
+        AuthController(authRepo: HttpAuthRepo());
     _notificationController = widget.notificationController ??
         NotificationController(
-          notificationRepo: MockNotificationRepo(),
+          notificationRepo: HttpNotificationRepo(),
+          userToken: _userToken,
+          onNewNotifications: _showNewNotificationToast,
         );
     _newsController = widget.newsController ??
         NewsController(
-          newsRepo: MockNewsRepo(),
-          subscriptionRepo: MockSubscriptionRepo(),
+          newsRepo: HttpNewsRepo(),
+          subscriptionRepo: HttpSubscriptionRepo(),
+          userToken: _userToken,
         );
 
     // Fetch initial dashboard data & start periodic notification polling
-    widget.controller.loadDashboardData();
-    _notificationController.startPolling();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      widget.controller.loadDashboardData();
+      _notificationController.startPolling(
+        interval: const Duration(seconds: 90),
+      );
+      await _authController.checkAndValidateSavedSession();
+    });
+    _authController.addListener(_onAuthChanged);
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _authController.checkAndValidateSavedSession();
+    }
+  }
+
+  void _showNewNotificationToast(int unreadCount) {
+    if (!mounted) return;
+    final message = unreadCount == 1
+        ? 'You have 1 unread notification'
+        : 'You have $unreadCount unread notifications';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.notifications_active, color: Colors.white, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: AppColors.primaryGreen,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.only(top: 16, left: 16, right: 16, bottom: 16),
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: 'View',
+          textColor: Colors.white,
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => NotificationListScreen(
+                  controller: _notificationController,
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  void _onAuthChanged() {
+    if (mounted) {
+      setState(() {});
+      if (_authController.isLoggedIn) {
+        _notificationController.startPolling(
+          interval: const Duration(seconds: 90),
+        );
+      } else {
+        _notificationController.fetchUnreadCount(); // Will stop timer and clear count
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _authController.removeListener(_onAuthChanged);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -80,14 +169,19 @@ class _HomeScreenState extends State<HomeScreen> {
         return PredictCropScreen(
           controller: PredictController(
             predictRepo: HttpPredictRepo(),
+            userToken: _userToken,
           ),
         );
       case 2:
         return HistoryScreen(
-          controller: HistoryController(),
+          controller: HistoryController(
+            userToken: _userToken,
+          ),
         );
       case 3:
-        return const ProfileScreen();
+        return ProfileScreen(
+          authController: _authController,
+        );
       case 0:
       default:
         return _buildDashboardContent();
@@ -203,7 +297,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Row(
               children: [
                 Text(
-                  'Ramesh',
+                  _authController.tokens?.username ?? 'Farmer',
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                         color: AppColors.textDark,
                         fontWeight: FontWeight.bold,
@@ -220,21 +314,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         Row(
           children: [
-            IconButton(
-              icon: const Icon(
-                Icons.analytics_rounded,
-                size: AppSizes.iconLarge,
-                color: AppColors.primaryGreen,
-              ),
-              tooltip: 'Admin Analytics Dashboard',
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => const AnalyticsDashboardScreen(),
-                  ),
-                );
-              },
-            ),
             AnimatedBuilder(
               animation: _notificationController,
               builder: (context, _) {
@@ -388,6 +467,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 builder: (context) => PredictCropScreen(
                   controller: PredictController(
                     predictRepo: HttpPredictRepo(),
+                    userToken: _userToken,
                   ),
                 ),
               ),
@@ -407,6 +487,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 builder: (context) => PredictFertilizerScreen(
                   controller: FertilizerController(
                     fertilizerRepo: HttpFertilizerRepo(),
+                    userToken: _userToken,
                   ),
                 ),
               ),

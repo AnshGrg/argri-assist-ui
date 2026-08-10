@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:jwt_decoder/jwt_decoder.dart';
 import '../models/login_request_model.dart';
 import '../models/logout_request_model.dart';
 import '../models/register_request_model.dart';
 import '../models/refresh_token_request_model.dart';
 import '../models/auth_tokens_model.dart';
 import '../repos/auth_repo.dart';
+import '../../../core/services/token_storage.dart';
 
 class AuthController extends ChangeNotifier {
   final AuthRepo _authRepo;
 
-  AuthController({required AuthRepo authRepo}) : _authRepo = authRepo;
+  AuthController({required AuthRepo authRepo}) : _authRepo = authRepo {
+    // Load persisted tokens synchronously/asynchronously on construction
+    _loadPersistedTokens();
+  }
 
   String _email = '';
   String get email => _email;
@@ -30,6 +35,66 @@ class AuthController extends ChangeNotifier {
 
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
+
+  /// Load tokens saved from a previous session.
+  Future<void> _loadPersistedTokens() async {
+    final saved = await TokenStorage.loadTokens();
+    if (saved != null) {
+      _tokens = saved;
+      notifyListeners();
+    }
+  }
+
+  /// Check saved access token expiration via JwtDecoder.
+  /// If expired, call refresh token endpoint. If refresh token is also expired or fails, clear session.
+  Future<bool> checkAndValidateSavedSession() async {
+    final saved = await TokenStorage.loadTokens();
+    if (saved == null || saved.access.isEmpty) {
+      _tokens = null;
+      notifyListeners();
+      return false;
+    }
+
+    _tokens = saved;
+
+    // Check if access token is expired using JwtDecoder
+    bool accessExpired = false;
+    try {
+      accessExpired = JwtDecoder.isExpired(saved.access);
+    } catch (_) {
+      // If token is opaque or cannot be parsed by JwtDecoder, treat as NOT expired locally
+      // and rely on backend 401/403 responses
+      accessExpired = false;
+    }
+
+    if (accessExpired) {
+      // Access token is expired -> attempt to refresh token
+      if (saved.refresh.isNotEmpty) {
+        bool refreshExpired = false;
+        try {
+          refreshExpired = JwtDecoder.isExpired(saved.refresh);
+        } catch (_) {
+          refreshExpired = false;
+        }
+
+        if (!refreshExpired) {
+          final refreshed = await refreshToken(refreshTokenOverride: saved.refresh);
+          if (refreshed && _tokens != null && _tokens!.access.isNotEmpty) {
+            return true;
+          }
+        }
+      }
+
+      // Refresh token expired or refresh API failed -> clear session & redirect to login
+      await TokenStorage.clearTokens();
+      _tokens = null;
+      notifyListeners();
+      return false;
+    }
+
+    notifyListeners();
+    return true;
+  }
 
   void setEmail(String value) {
     _email = value.trim();
@@ -60,6 +125,7 @@ class AuthController extends ChangeNotifier {
     try {
       final request = LoginRequestModel(email: _email, password: _password);
       _tokens = await _authRepo.login(request);
+      await TokenStorage.saveTokens(_tokens!);
       _isLoading = false;
       notifyListeners();
       return true;
@@ -107,7 +173,11 @@ class AuthController extends ChangeNotifier {
       _tokens = AuthTokensModel(
         access: newTokens.access,
         refresh: newTokens.refresh.isNotEmpty ? newTokens.refresh : targetRefresh,
+        username: newTokens.username ?? _tokens?.username,
+        email: newTokens.email ?? _tokens?.email,
+        userId: newTokens.userId ?? _tokens?.userId,
       );
+      await TokenStorage.saveTokens(_tokens!);
       _isLoading = false;
       notifyListeners();
       return true;
@@ -137,6 +207,7 @@ class AuthController extends ChangeNotifier {
       _tokens = null;
       _email = '';
       _password = '';
+      await TokenStorage.clearTokens();
       _isLoading = false;
       notifyListeners();
     }

@@ -12,7 +12,10 @@ abstract class SubscriptionRepo {
 
 class HttpSubscriptionRepo implements SubscriptionRepo {
   Map<String, String> _headers(String? token) {
-    final headers = <String, String>{'Content-Type': 'application/json'};
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+      'ngrok-skip-browser-warning': 'true',
+    };
     if (token != null && token.isNotEmpty) {
       headers['Authorization'] = 'Bearer $token';
     }
@@ -76,6 +79,9 @@ class HttpSubscriptionRepo implements SubscriptionRepo {
           .timeout(const Duration(seconds: 10));
 
       if (response.statusCode != 200 && response.statusCode != 204) {
+        if (response.statusCode == 404) {
+          throw Exception('Subscription not found.');
+        }
         throw Exception('Failed to unsubscribe (${response.statusCode})');
       }
     } catch (e) {
@@ -89,11 +95,13 @@ class MockSubscriptionRepo implements SubscriptionRepo {
     SubscriptionModel(
       id: 1,
       category: const NewsCategoryModel(id: 4, name: 'Pest & Disease', description: 'Pest outbreak alerts and treatment steps'),
+      categoryId: 4,
       createdAt: DateTime.now().subtract(const Duration(days: 10)),
     ),
     SubscriptionModel(
       id: 2,
       category: const NewsCategoryModel(id: 1, name: 'Weather Alerts', description: 'Severe weather notices and rainfall forecasts'),
+      categoryId: 1,
       createdAt: DateTime.now().subtract(const Duration(days: 5)),
     ),
   ];
@@ -122,6 +130,7 @@ class MockSubscriptionRepo implements SubscriptionRepo {
     final newSub = SubscriptionModel(
       id: DateTime.now().millisecondsSinceEpoch % 10000,
       category: mockCat,
+      categoryId: categoryId,
       createdAt: DateTime.now(),
     );
     _mockSubscriptions.add(newSub);

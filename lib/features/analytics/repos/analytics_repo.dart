@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../../core/constants/api_endpoints.dart';
+import '../../../core/services/token_storage.dart';
 import '../models/analytics_kpi_model.dart';
 import '../models/climate_card_model.dart';
 import '../models/crop_distribution_model.dart';
@@ -30,13 +31,23 @@ class HttpAnalyticsRepo implements AnalyticsRepo {
 
   HttpAnalyticsRepo({http.Client? client}) : _client = client ?? http.Client();
 
-  Map<String, String> _buildHeaders(String? token) {
+  Future<String?> _getEffectiveToken(String? token) async {
+    if (token != null && token.isNotEmpty) {
+      return token;
+    }
+    final saved = await TokenStorage.loadTokens();
+    return saved?.access;
+  }
+
+  Future<Map<String, String>> _buildHeaders(String? token) async {
+    final effectiveToken = await _getEffectiveToken(token);
     final headers = <String, String>{
       'Content-Type': 'application/json',
       'Accept': 'application/json',
+      'ngrok-skip-browser-warning': 'true',
     };
-    if (token != null && token.isNotEmpty) {
-      headers['Authorization'] = 'Bearer $token';
+    if (effectiveToken != null && effectiveToken.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $effectiveToken';
     }
     return headers;
   }
@@ -56,7 +67,7 @@ class HttpAnalyticsRepo implements AnalyticsRepo {
   @override
   Future<AnalyticsKpiModel> fetchKpis(String? authToken) async {
     final url = Uri.parse(ApiEndpoints.analyticsKpis);
-    final response = await _client.get(url, headers: _buildHeaders(authToken));
+    final response = await _client.get(url, headers: await _buildHeaders(authToken));
     _handleErrorResponse(response);
     final Map<String, dynamic> body = jsonDecode(response.body);
     return AnalyticsKpiModel.fromJson(body);
@@ -65,40 +76,112 @@ class HttpAnalyticsRepo implements AnalyticsRepo {
   @override
   Future<List<RegionalFertilizerDemand>> fetchFertilizerDemand(String? authToken) async {
     final url = Uri.parse(ApiEndpoints.analyticsFertilizerDemand);
-    final response = await _client.get(url, headers: _buildHeaders(authToken));
+    final response = await _client.get(url, headers: await _buildHeaders(authToken));
     _handleErrorResponse(response);
-    final Map<String, dynamic> body = jsonDecode(response.body);
-    final List<dynamic> list = body['regional_demand'] as List<dynamic>? ?? [];
+    final decoded = jsonDecode(response.body);
+    List<dynamic> list = [];
+    if (decoded is List) {
+      list = decoded;
+    } else if (decoded is Map<String, dynamic>) {
+      final possibleList = decoded['regional_demand'] ?? decoded['data'] ?? decoded['fertilizer_demand'] ?? decoded['results'];
+      if (possibleList is List) {
+        list = possibleList;
+      }
+    }
     return list.map((item) => RegionalFertilizerDemand.fromJson(item as Map<String, dynamic>)).toList();
   }
 
   @override
   Future<List<SoilAcidityHotspot>> fetchSoilAcidityHotspots(String? authToken) async {
     final url = Uri.parse(ApiEndpoints.analyticsSoilAcidity);
-    final response = await _client.get(url, headers: _buildHeaders(authToken));
+    final response = await _client.get(url, headers: await _buildHeaders(authToken));
     _handleErrorResponse(response);
-    final Map<String, dynamic> body = jsonDecode(response.body);
-    final List<dynamic> list = body['hotspots'] as List<dynamic>? ?? [];
+    final decoded = jsonDecode(response.body);
+    List<dynamic> list = [];
+    if (decoded is List) {
+      list = decoded;
+    } else if (decoded is Map<String, dynamic>) {
+      final possibleList = decoded['hotspots'] ?? decoded['data'] ?? decoded['results'];
+      if (possibleList is List) {
+        list = possibleList;
+      }
+    }
     return list.map((item) => SoilAcidityHotspot.fromJson(item as Map<String, dynamic>)).toList();
   }
 
   @override
   Future<List<SeasonalCropDistribution>> fetchCropDistribution(String? authToken) async {
     final url = Uri.parse(ApiEndpoints.analyticsCropDistribution);
-    final response = await _client.get(url, headers: _buildHeaders(authToken));
+    final response = await _client.get(url, headers: await _buildHeaders(authToken));
     _handleErrorResponse(response);
-    final Map<String, dynamic> body = jsonDecode(response.body);
-    final List<dynamic> list = body['crop_distribution'] as List<dynamic>? ?? [];
-    return list.map((item) => SeasonalCropDistribution.fromJson(item as Map<String, dynamic>)).toList();
+    final decoded = jsonDecode(response.body);
+    if (decoded is Map<String, dynamic>) {
+      final parsedResp = CropDistributionResponse.fromJson(decoded);
+      if (parsedResp.seasonalDistribution.isNotEmpty) {
+        return parsedResp.seasonalDistribution;
+      }
+      if (parsedResp.topCropsLeaderboard.isNotEmpty) {
+        final topCrops = parsedResp.topCropsLeaderboard.map((item) => CropShare(
+          crop: item.cropName,
+          count: item.totalRecommendations,
+          percentage: item.avgConfidencePct,
+        )).toList();
+        return [
+          SeasonalCropDistribution(
+            season: 'Overall Top Crops Leaderboard',
+            totalRecommendations: topCrops.fold(0, (sum, c) => sum + c.count),
+            topCrops: topCrops,
+          ),
+        ];
+      }
+      final possibleList = decoded['crop_distribution'] ?? decoded['seasonal_distribution'] ?? decoded['data'];
+      if (possibleList is List) {
+        return possibleList.map((item) => SeasonalCropDistribution.fromJson(item as Map<String, dynamic>)).toList();
+      }
+    } else if (decoded is List) {
+      return decoded.map((item) => SeasonalCropDistribution.fromJson(item as Map<String, dynamic>)).toList();
+    }
+    return [];
+  }
+
+  Future<CropDistributionResponse?> fetchFullCropDistributionResponse(String? authToken) async {
+    final url = Uri.parse(ApiEndpoints.analyticsCropDistribution);
+    final response = await _client.get(url, headers: await _buildHeaders(authToken));
+    _handleErrorResponse(response);
+    final decoded = jsonDecode(response.body);
+    if (decoded is Map<String, dynamic>) {
+      return CropDistributionResponse.fromJson(decoded);
+    }
+    return null;
+  }
+
+  Future<List<CropLeaderboardItem>> fetchCropLeaderboard(String? authToken) async {
+    final url = Uri.parse(ApiEndpoints.analyticsCropDistribution);
+    final response = await _client.get(url, headers: await _buildHeaders(authToken));
+    _handleErrorResponse(response);
+    final decoded = jsonDecode(response.body);
+    if (decoded is Map<String, dynamic>) {
+      final parsedResp = CropDistributionResponse.fromJson(decoded);
+      return parsedResp.topCropsLeaderboard;
+    }
+    return [];
   }
 
   @override
   Future<List<DailyUsageTrend>> fetchUsageTrends(String? authToken) async {
     final url = Uri.parse(ApiEndpoints.analyticsUsageTrends);
-    final response = await _client.get(url, headers: _buildHeaders(authToken));
+    final response = await _client.get(url, headers: await _buildHeaders(authToken));
     _handleErrorResponse(response);
-    final Map<String, dynamic> body = jsonDecode(response.body);
-    final List<dynamic> list = body['daily_trends'] as List<dynamic>? ?? [];
+    final decoded = jsonDecode(response.body);
+    List<dynamic> list = [];
+    if (decoded is List) {
+      list = decoded;
+    } else if (decoded is Map<String, dynamic>) {
+      final possibleList = decoded['daily_trends'] ?? decoded['usage_trends'] ?? decoded['data'] ?? decoded['results'];
+      if (possibleList is List) {
+        list = possibleList;
+      }
+    }
     return list.map((item) => DailyUsageTrend.fromJson(item as Map<String, dynamic>)).toList();
   }
 

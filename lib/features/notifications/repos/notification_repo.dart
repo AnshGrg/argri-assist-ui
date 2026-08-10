@@ -12,7 +12,10 @@ abstract class NotificationRepo {
 
 class HttpNotificationRepo implements NotificationRepo {
   Map<String, String> _headers(String? token) {
-    final headers = <String, String>{'Content-Type': 'application/json'};
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+      'ngrok-skip-browser-warning': 'true',
+    };
     if (token != null && token.isNotEmpty) {
       headers['Authorization'] = 'Bearer $token';
     }
@@ -46,9 +49,20 @@ class HttpNotificationRepo implements NotificationRepo {
           .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-        final list = decoded['notifications'] as List? ?? [];
-        return list.map((item) => InAppNotificationModel.fromJson(item)).toList();
+        final decoded = jsonDecode(response.body);
+        List list;
+        if (decoded is List) {
+          list = decoded;
+        } else if (decoded is Map<String, dynamic>) {
+          list = (decoded['notifications'] as List?) ??
+                 (decoded['results'] as List?) ??
+                 [];
+        } else {
+          list = [];
+        }
+        return list
+            .map((item) => InAppNotificationModel.fromJson(item as Map<String, dynamic>))
+            .toList();
       }
       throw Exception('Failed to fetch notification list (${response.statusCode})');
     } catch (e) {

@@ -8,7 +8,6 @@ import '../../auth/views/login_screen.dart';
 import '../controllers/profile_controller.dart';
 import '../repos/profile_repo.dart';
 import 'edit_profile_screen.dart';
-import '../../analytics/views/analytics_dashboard_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final ProfileController? controller;
@@ -33,7 +32,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.initState();
     _controller = widget.controller ?? ProfileController(profileRepo: HttpProfileRepo());
     _authController = widget.authController ?? AuthController(authRepo: HttpAuthRepo());
-    _controller.fetchUserProfile();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _controller.fetchUserProfile(accessToken: _authController.tokens?.access);
+    });
   }
 
   @override
@@ -124,9 +125,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     final profile = _controller.userProfile;
-    final fullName = profile?.fullName.isNotEmpty == true ? profile!.fullName : 'Ramesh Kumar';
-    final email = profile?.email.isNotEmpty == true ? profile!.email : 'ramesh.kumar@email.com';
-    final phone = profile?.profile?.phoneNumber ?? '+977 98765 43210';
+    final authUsername = _authController.tokens?.username;
+    final authEmail = _authController.tokens?.email;
+    final fullName = profile?.fullName.isNotEmpty == true
+        ? profile!.fullName
+        : (authUsername ?? 'Farmer');
+    final email = profile?.email.isNotEmpty == true
+        ? profile!.email
+        : (authEmail ?? '');
+    final phone = profile?.profile?.phoneNumber ?? '';
     final city = profile?.profile?.city;
 
     return Column(
@@ -260,21 +267,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const Divider(color: AppColors.glassBorder, height: 1),
           _buildMenuRow(
             context: context,
-            icon: Icons.analytics_outlined,
-            title: 'Admin Analytics Dashboard',
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => AnalyticsDashboardScreen(
-                    authToken: _authController.tokens?.access,
-                  ),
-                ),
-              );
-            },
-          ),
-          const Divider(color: AppColors.glassBorder, height: 1),
-          _buildMenuRow(
-            context: context,
             icon: Icons.help_outline_rounded,
             title: 'Help & Support',
             onTap: () {},
@@ -342,6 +334,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showLogoutDialog(BuildContext context) {
+    // If user is not even logged in, go straight to login screen
+    if (!_authController.isLoggedIn) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => LoginScreen(controller: _authController),
+        ),
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -357,15 +359,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               final navigator = Navigator.of(context);
               final messenger = ScaffoldMessenger.of(context);
               Navigator.of(dialogContext).pop();
-              final success = await _authController.logout();
+              await _authController.logout();
               if (mounted) {
                 messenger.showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      success
-                          ? 'Successfully logged out.'
-                          : (_authController.errorMessage ?? 'Logged out successfully.'),
-                    ),
+                  const SnackBar(
+                    content: Text('Successfully logged out.'),
                     backgroundColor: AppColors.primaryGreen,
                   ),
                 );
@@ -383,3 +381,4 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 }
+

@@ -21,7 +21,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
   @override
   void initState() {
     super.initState();
-    widget.controller.loadHistory();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      widget.controller.loadHistory();
+    });
   }
 
   @override

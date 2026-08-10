@@ -13,7 +13,11 @@ class RegionalFertilizerDemand {
     final rawFertilizers = json['fertilizers'] as Map<String, dynamic>? ?? {};
     final Map<String, int> parsedFertilizers = {};
     rawFertilizers.forEach((key, value) {
-      parsedFertilizers[key] = (value as num).toInt();
+      if (value is num) {
+        parsedFertilizers[key] = value.toInt();
+      } else if (value != null) {
+        parsedFertilizers[key] = int.tryParse(value.toString()) ?? 0;
+      }
     });
 
     return RegionalFertilizerDemand(

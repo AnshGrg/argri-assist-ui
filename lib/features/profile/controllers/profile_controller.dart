@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/services/token_storage.dart';
 import '../models/user_profile_model.dart';
 import '../models/user_profile_update_model.dart';
 import '../repos/profile_repo.dart';
@@ -22,8 +23,14 @@ class ProfileController extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
+    var effectiveToken = accessToken;
+    if (effectiveToken == null || effectiveToken.isEmpty) {
+      final saved = await TokenStorage.loadTokens();
+      effectiveToken = saved?.access;
+    }
+
     try {
-      _userProfile = await _profileRepo.getUserProfile(accessToken: accessToken);
+      _userProfile = await _profileRepo.getUserProfile(accessToken: effectiveToken);
     } catch (e) {
       _errorMessage = '$e'.replaceAll('Exception: ', '');
     } finally {
@@ -37,8 +44,14 @@ class ProfileController extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
+    var effectiveToken = accessToken;
+    if (effectiveToken == null || effectiveToken.isEmpty) {
+      final saved = await TokenStorage.loadTokens();
+      effectiveToken = saved?.access;
+    }
+
     try {
-      _userProfile = await _profileRepo.updateProfile(request, accessToken: accessToken);
+      _userProfile = await _profileRepo.updateProfile(request, accessToken: effectiveToken);
       _isLoading = false;
       notifyListeners();
       return true;

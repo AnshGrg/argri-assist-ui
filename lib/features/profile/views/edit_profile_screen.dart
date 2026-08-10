@@ -4,6 +4,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_sizes.dart';
 import '../../../core/widgets/glass_card.dart';
 import '../../../core/widgets/primary_button.dart';
+import '../../predict/controllers/predict_controller.dart';
 import '../controllers/profile_controller.dart';
 import '../models/user_profile_update_model.dart';
 
@@ -18,21 +19,51 @@ class EditProfileScreen extends StatefulWidget {
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _firstNameController;
-  late final TextEditingController _lastNameController;
-  late final TextEditingController _emailController;
-  late final TextEditingController _phoneController;
-  late final TextEditingController _cityController;
+  final TextEditingController _firstNameController = TextEditingController();
+  final TextEditingController _lastNameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+
+  LocationOption? _selectedCity;
+  bool _hasInitializedFields = false;
 
   @override
   void initState() {
     super.initState();
+    _fetchAndPopulate();
+  }
+
+  Future<void> _fetchAndPopulate() async {
+    if (widget.controller.userProfile == null) {
+      await widget.controller.fetchUserProfile();
+    }
+    if (mounted) {
+      _updateFieldsFromController();
+    }
+  }
+
+  void _updateFieldsFromController() {
     final profile = widget.controller.userProfile;
-    _firstNameController = TextEditingController(text: profile?.firstName ?? '');
-    _lastNameController = TextEditingController(text: profile?.lastName ?? '');
-    _emailController = TextEditingController(text: profile?.email ?? '');
-    _phoneController = TextEditingController(text: profile?.profile?.phoneNumber ?? '');
-    _cityController = TextEditingController(text: profile?.profile?.city ?? '');
+    if (profile != null) {
+      _firstNameController.text = profile.firstName;
+      _lastNameController.text = profile.lastName;
+      _emailController.text = profile.email;
+      _phoneController.text = profile.profile?.phoneNumber ?? '';
+
+      final existingCityStr = profile.profile?.city?.toLowerCase().trim();
+      if (existingCityStr != null && existingCityStr.isNotEmpty) {
+        _selectedCity = PredictController.locationOptions.firstWhere(
+          (loc) =>
+              loc.name.toLowerCase() == existingCityStr ||
+              loc.displayName.toLowerCase() == existingCityStr ||
+              existingCityStr.contains(loc.name.toLowerCase()),
+          orElse: () => PredictController.locationOptions.first,
+        );
+      } else {
+        _selectedCity = PredictController.locationOptions.first;
+      }
+      _hasInitializedFields = true;
+    }
   }
 
   @override
@@ -41,7 +72,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _lastNameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
-    _cityController.dispose();
     super.dispose();
   }
 
@@ -52,7 +82,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         lastName: _lastNameController.text.trim(),
         email: _emailController.text.trim(),
         phoneNumber: _phoneController.text.trim(),
-        city: _cityController.text.trim(),
+        city: _selectedCity?.name ?? '',
       );
 
       final success = await widget.controller.updateProfile(request);
@@ -96,6 +126,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             child: AnimatedBuilder(
               animation: widget.controller,
               builder: (context, _) {
+                if (!_hasInitializedFields && widget.controller.userProfile != null) {
+                  _updateFieldsFromController();
+                }
+
                 return Column(
                   children: [
                     _buildAppBar(context),
@@ -227,11 +261,57 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             keyboardType: TextInputType.phone,
           ),
           AppSizes.spaceM,
-          _buildTextField(
-            label: 'City',
-            controller: _cityController,
-            icon: Icons.location_city_outlined,
-            hint: 'e.g. Pokhara, Kathmandu',
+          // City / District Selection Dropdown
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'City / Location',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textDark,
+                    ),
+              ),
+              AppSizes.spaceS,
+              DropdownButtonFormField<LocationOption>(
+                key: ValueKey(_selectedCity?.displayName ?? 'city_dropdown'),
+                initialValue: _selectedCity,
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.location_city_outlined, color: AppColors.primaryGreen),
+                  filled: true,
+                  fillColor: AppColors.white.withValues(alpha: 0.8),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppSizes.radiusMedium),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: AppSizes.m,
+                    vertical: AppSizes.m,
+                  ),
+                ),
+                dropdownColor: AppColors.backgroundGreen,
+                isExpanded: true,
+                onChanged: (LocationOption? val) {
+                  if (val != null) {
+                    setState(() => _selectedCity = val);
+                  }
+                },
+                items: PredictController.locationOptions
+                    .map<DropdownMenuItem<LocationOption>>((LocationOption loc) {
+                  return DropdownMenuItem<LocationOption>(
+                    value: loc,
+                    child: Text(
+                      loc.displayName,
+                      style: const TextStyle(
+                        color: AppColors.textDark,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
           ),
         ],
       ),

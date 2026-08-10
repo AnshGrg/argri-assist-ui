@@ -83,20 +83,12 @@ class _PredictCropScreenState extends State<PredictCropScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          IconButton(
-            icon: const Icon(
-              Icons.chevron_left_rounded,
-              size: AppSizes.iconExtraLarge,
-              color: AppColors.textDark,
-            ),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
           Text(
             'Predict Crop',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textDark,
-                ),
+              fontWeight: FontWeight.bold,
+              color: AppColors.textDark,
+            ),
           ),
           IconButton(
             icon: const Icon(
@@ -118,9 +110,9 @@ class _PredictCropScreenState extends State<PredictCropScreen> {
         Text(
           'Soil Nutrients (kg/ha)',
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: AppColors.textDark,
-              ),
+            fontWeight: FontWeight.bold,
+            color: AppColors.textDark,
+          ),
         ),
         AppSizes.spaceM,
         Row(
@@ -162,9 +154,9 @@ class _PredictCropScreenState extends State<PredictCropScreen> {
         Text(
           'Location & Environment',
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: AppColors.textDark,
-              ),
+            fontWeight: FontWeight.bold,
+            color: AppColors.textDark,
+          ),
         ),
         AppSizes.spaceM,
         // Location Dropdown Card
@@ -194,9 +186,9 @@ class _PredictCropScreenState extends State<PredictCropScreen> {
               Text(
                 'Location',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.textDark,
-                    ),
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.textDark,
+                ),
               ),
               DropdownButton<LocationOption>(
                 value: widget.controller.selectedLocation,
@@ -212,18 +204,21 @@ class _PredictCropScreenState extends State<PredictCropScreen> {
                   }
                 },
                 items: PredictController.locationOptions
-                    .map<DropdownMenuItem<LocationOption>>((LocationOption value) {
-                  return DropdownMenuItem<LocationOption>(
-                    value: value,
-                    child: Text(
-                      value.name,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textDark,
-                      ),
-                    ),
-                  );
-                }).toList(),
+                    .map<DropdownMenuItem<LocationOption>>((
+                      LocationOption value,
+                    ) {
+                      return DropdownMenuItem<LocationOption>(
+                        value: value,
+                        child: Text(
+                          value.name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textDark,
+                          ),
+                        ),
+                      );
+                    })
+                    .toList(),
               ),
             ],
           ),
@@ -256,9 +251,9 @@ class _PredictCropScreenState extends State<PredictCropScreen> {
               Text(
                 'Season',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.textDark,
-                    ),
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.textDark,
+                ),
               ),
               DropdownButton<String>(
                 value: widget.controller.selectedSeason,
@@ -275,17 +270,18 @@ class _PredictCropScreenState extends State<PredictCropScreen> {
                 },
                 items: PredictController.seasonOptions
                     .map<DropdownMenuItem<String>>((String value) {
-                  return DropdownMenuItem<String>(
-                    value: value,
-                    child: Text(
-                      value,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textDark,
-                      ),
-                    ),
-                  );
-                }).toList(),
+                      return DropdownMenuItem<String>(
+                        value: value,
+                        child: Text(
+                          value,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textDark,
+                          ),
+                        ),
+                      );
+                    })
+                    .toList(),
               ),
             ],
           ),
@@ -336,9 +332,9 @@ class _PredictCropScreenState extends State<PredictCropScreen> {
           Text(
             label,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.textDark,
-                ),
+              fontWeight: FontWeight.w500,
+              color: AppColors.textDark,
+            ),
           ),
           Row(
             children: [
@@ -348,16 +344,18 @@ class _PredictCropScreenState extends State<PredictCropScreen> {
                   height: 16,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryGreen),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      AppColors.primaryGreen,
+                    ),
                   ),
                 )
               else
                 Text(
                   value,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textDark,
-                      ),
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textDark,
+                  ),
                 ),
               const SizedBox(width: AppSizes.s),
               if (badgeText != null) ...[
@@ -450,7 +448,8 @@ class _PredictCropScreenState extends State<PredictCropScreen> {
                 ),
               ),
             );
-          } else if (context.mounted && widget.controller.errorMessage != null) {
+          } else if (context.mounted &&
+              widget.controller.errorMessage != null) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(widget.controller.errorMessage!)),
             );
@@ -480,7 +479,9 @@ class _PredictCropScreenState extends State<PredictCropScreen> {
   }
 
   void _showPhEditDialog(BuildContext context) {
-    final textController = TextEditingController(text: widget.controller.ph.toString());
+    final textController = TextEditingController(
+      text: widget.controller.ph.toString(),
+    );
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -488,9 +489,7 @@ class _PredictCropScreenState extends State<PredictCropScreen> {
         content: TextField(
           controller: textController,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(
-            labelText: 'Soil pH (0.0 - 14.0)',
-          ),
+          decoration: const InputDecoration(labelText: 'Soil pH (0.0 - 14.0)'),
         ),
         actions: [
           TextButton(
@@ -508,6 +507,4 @@ class _PredictCropScreenState extends State<PredictCropScreen> {
       ),
     );
   }
-
-
 }

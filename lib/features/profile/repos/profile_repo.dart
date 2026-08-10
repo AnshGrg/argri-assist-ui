@@ -15,6 +15,7 @@ class HttpProfileRepo implements ProfileRepo {
     try {
       final headers = <String, String>{
         'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
       };
       if (accessToken != null && accessToken.isNotEmpty) {
         headers['Authorization'] = 'Bearer $accessToken';
@@ -48,6 +49,7 @@ class HttpProfileRepo implements ProfileRepo {
     try {
       final headers = <String, String>{
         'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
       };
       if (accessToken != null && accessToken.isNotEmpty) {
         headers['Authorization'] = 'Bearer $accessToken';

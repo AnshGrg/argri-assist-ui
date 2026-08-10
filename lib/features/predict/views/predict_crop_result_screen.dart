@@ -444,6 +444,7 @@ class PredictCropResultScreen extends StatelessWidget {
           onPressed: () {
             final fertilizerController = FertilizerController(
               fertilizerRepo: HttpFertilizerRepo(),
+              userToken: controller.userToken,
             );
             fertilizerController.prefillFromCropResult(
               crop: result.recommendedCrop,

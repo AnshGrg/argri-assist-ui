@@ -281,7 +281,7 @@ class _PredictFertilizerScreenState extends State<PredictFertilizerScreen> {
               return DropdownMenuItem<LocationOption>(
                 value: value,
                 child: Text(
-                  value.name,
+                  value.displayName,
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     color: AppColors.textDark,

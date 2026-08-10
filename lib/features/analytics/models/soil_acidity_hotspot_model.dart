@@ -42,7 +42,7 @@ class SoilAcidityHotspot {
       acidicTestsCount: (json['acidic_tests_count'] as num?)?.toInt() ?? 0,
       acidicPercentage: (json['acidic_percentage'] as num?)?.toDouble() ?? 0.0,
       acidityRiskLevel: json['acidity_risk_level'] ?? 'LOW',
-      actionRequired: json['action_required'],
+      actionRequired: json['recommended_action'] ?? json['action_required'],
     );
   }
 
@@ -54,7 +54,7 @@ class SoilAcidityHotspot {
       'acidic_tests_count': acidicTestsCount,
       'acidic_percentage': acidicPercentage,
       'acidity_risk_level': acidityRiskLevel,
-      'action_required': defaultAction,
+      'recommended_action': defaultAction,
     };
   }
 }

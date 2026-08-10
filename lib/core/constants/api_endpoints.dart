@@ -9,11 +9,16 @@ class ApiEndpoints {
   static const String predictCrop = 'https://unknotted-unknown-heat.ngrok-free.dev/api/recommendation/crop/';
   static const String predictFertilizer = 'https://unknotted-unknown-heat.ngrok-free.dev/api/recommendation/fertilizer/';
   static const String getCrops = 'https://unknotted-unknown-heat.ngrok-free.dev/api/recommendation/crops/';
-  static const String login = 'https://unknotted-unknown-heat.ngrok-free.dev/accounts/login/';
-  static const String logout = 'https://unknotted-unknown-heat.ngrok-free.dev/accounts/logout/';
-  static const String profile = 'https://unknotted-unknown-heat.ngrok-free.dev/accounts/profile/';
-  static const String register = 'https://unknotted-unknown-heat.ngrok-free.dev/accounts/register/';
-  static const String refreshToken = 'https://unknotted-unknown-heat.ngrok-free.dev/accounts/token/refresh/';
+  static const String getFertilizers = 'https://unknotted-unknown-heat.ngrok-free.dev/api/recommendation/fertilizers/';
+  static const String cropHistory = 'https://unknotted-unknown-heat.ngrok-free.dev/api/recommendation/crop-history/';
+  static const String fertilizerHistory = 'https://unknotted-unknown-heat.ngrok-free.dev/api/recommendation/fertilizer-history/';
+  static String cropHistoryDetail(dynamic id) => 'https://unknotted-unknown-heat.ngrok-free.dev/api/recommendation/crop-history/$id/';
+  static String fertilizerHistoryDetail(dynamic id) => 'https://unknotted-unknown-heat.ngrok-free.dev/api/recommendation/fertilizer-history/$id/';
+  static const String login = 'https://unknotted-unknown-heat.ngrok-free.dev/api/accounts/login/';
+  static const String logout = 'https://unknotted-unknown-heat.ngrok-free.dev/api/accounts/logout/';
+  static const String profile = 'https://unknotted-unknown-heat.ngrok-free.dev/api/accounts/profile/';
+  static const String register = 'https://unknotted-unknown-heat.ngrok-free.dev/api/accounts/register/';
+  static const String refreshToken = 'https://unknotted-unknown-heat.ngrok-free.dev/api/accounts/token/refresh/';
 
   // Analytics Endpoints
   static const String analyticsKpis = 'https://unknotted-unknown-heat.ngrok-free.dev/api/analytics/kpis/';

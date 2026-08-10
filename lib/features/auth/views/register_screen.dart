@@ -2,7 +2,9 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_sizes.dart';
+import '../../../core/services/token_storage.dart';
 import '../../../core/widgets/glass_card.dart';
+import '../../predict/controllers/predict_controller.dart';
 import '../controllers/auth_controller.dart';
 import '../models/register_request_model.dart';
 
@@ -23,6 +25,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _passwordConfirmController = TextEditingController();
   bool _isObscurePassword = true;
   bool _isObscureConfirmPassword = true;
+
+  LocationOption _selectedCity = PredictController.locationOptions.first;
 
   @override
   void dispose() {
@@ -45,9 +49,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
         email: _emailController.text.trim(),
         firstName: firstName,
         lastName: lastName,
+        city: _selectedCity.name,
         password: _passwordController.text,
         passwordConfirm: _passwordConfirmController.text,
       );
+
+      // Persist selected city locally
+      await TokenStorage.saveSelectedCity(_selectedCity.name);
 
       final success = await widget.controller.register(request);
       if (success && mounted) {
@@ -197,6 +205,36 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 }
                 return null;
               },
+            ),
+            AppSizes.spaceM,
+            // City / Location Dropdown Selection
+            DropdownButtonFormField<LocationOption>(
+              initialValue: _selectedCity,
+              decoration: _buildInputDecoration(
+                hintText: 'Select City',
+                prefixIcon: Icons.location_city_rounded,
+              ),
+              dropdownColor: AppColors.backgroundGreen,
+              isExpanded: true,
+              onChanged: (LocationOption? val) {
+                if (val != null) {
+                  setState(() => _selectedCity = val);
+                }
+              },
+              items: PredictController.locationOptions
+                  .map<DropdownMenuItem<LocationOption>>((LocationOption loc) {
+                return DropdownMenuItem<LocationOption>(
+                  value: loc,
+                  child: Text(
+                    loc.displayName,
+                    style: const TextStyle(
+                      color: AppColors.textDark,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                );
+              }).toList(),
             ),
             AppSizes.spaceM,
             // Password Input

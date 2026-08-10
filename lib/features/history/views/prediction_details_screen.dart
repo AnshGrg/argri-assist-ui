@@ -2,16 +2,75 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_sizes.dart';
+import '../../../core/services/token_storage.dart';
 import '../../predict/controllers/predict_controller.dart';
 import '../../predict_fertilizer/controllers/fertilizer_controller.dart';
 import '../../predict_fertilizer/repos/fertilizer_repo.dart';
 import '../../predict_fertilizer/views/predict_fertilizer_screen.dart';
 import '../models/history_item_model.dart';
+import '../repos/history_repo.dart';
 
-class PredictionDetailsScreen extends StatelessWidget {
+class PredictionDetailsScreen extends StatefulWidget {
   final HistoryItemModel item;
 
   const PredictionDetailsScreen({super.key, required this.item});
+
+  @override
+  State<PredictionDetailsScreen> createState() => _PredictionDetailsScreenState();
+}
+
+class _PredictionDetailsScreenState extends State<PredictionDetailsScreen> {
+  late HistoryItemModel _item;
+  bool _isLoadingDetail = true;
+  String? _detailError;
+
+  @override
+  void initState() {
+    super.initState();
+    _item = widget.item;
+    _fetchDetail();
+  }
+
+  Future<void> _fetchDetail() async {
+    setState(() {
+      _isLoadingDetail = true;
+      _detailError = null;
+    });
+
+    // Get token
+    String? token;
+    final saved = await TokenStorage.loadTokens();
+    token = saved?.access;
+
+    final repo = HttpHistoryRepo();
+
+    try {
+      HistoryItemModel? detail;
+      if (_item.historyType == HistoryType.crop) {
+        detail = await repo.getCropHistoryDetail(_item.id, token: token);
+      } else {
+        detail = await repo.getFertilizerHistoryDetail(_item.id, token: token);
+      }
+
+      if (detail != null && mounted) {
+        setState(() {
+          _item = detail!;
+          _isLoadingDetail = false;
+        });
+      } else {
+        setState(() {
+          _isLoadingDetail = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _detailError = '$e'.replaceAll('Exception: ', '');
+          _isLoadingDetail = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,25 +101,55 @@ class PredictionDetailsScreen extends StatelessWidget {
               children: [
                 _buildAppBar(context),
                 Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: AppSizes.xl),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildCropPredictionCard(context),
-                        AppSizes.spaceM,
-                        _buildInputParametersCard(context),
-                        AppSizes.spaceM,
-                        _buildFertilizerRecommendationCard(context),
-                        AppSizes.spaceL,
-                      ],
-                    ),
-                  ),
+                  child: _isLoadingDetail
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                            color: AppColors.primaryGreen,
+                          ),
+                        )
+                      : SingleChildScrollView(
+                          padding: const EdgeInsets.symmetric(horizontal: AppSizes.xl),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (_detailError != null)
+                                _buildErrorBanner(context),
+                              _buildCropPredictionCard(context),
+                              AppSizes.spaceM,
+                              _buildInputParametersCard(context),
+                              AppSizes.spaceM,
+                              if (_item.advice != null && _item.advice!.isNotEmpty)
+                                ...[
+                                  _buildAdviceCard(context),
+                                  AppSizes.spaceM,
+                                ],
+                              _buildFertilizerRecommendationCard(context),
+                              AppSizes.spaceL,
+                            ],
+                          ),
+                        ),
                 ),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildErrorBanner(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: AppSizes.m),
+      padding: const EdgeInsets.all(AppSizes.m),
+      decoration: BoxDecoration(
+        color: Colors.red.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(AppSizes.radiusMedium),
+        border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+      ),
+      child: Text(
+        _detailError!,
+        style: const TextStyle(color: Colors.red, fontSize: 13),
       ),
     );
   }
@@ -83,7 +172,9 @@ class PredictionDetailsScreen extends StatelessWidget {
             onPressed: () => Navigator.of(context).pop(),
           ),
           Text(
-            'Prediction Details',
+            _item.historyType == HistoryType.crop
+                ? 'Crop Prediction Details'
+                : 'Fertilizer Details',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: AppColors.textDark,
@@ -109,7 +200,7 @@ class PredictionDetailsScreen extends StatelessWidget {
     IconData cropIcon = Icons.grass;
     Color iconColor = AppColors.primaryGreen;
 
-    switch (item.cropName.toLowerCase()) {
+    switch (_item.cropName.toLowerCase()) {
       case 'maize':
         cropIcon = Icons.wb_twilight_rounded;
         iconColor = Colors.amber;
@@ -146,7 +237,9 @@ class PredictionDetailsScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Crop Prediction',
+            _item.historyType == HistoryType.crop
+                ? 'Crop Prediction'
+                : 'Fertilizer Prediction',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: AppColors.textDark,
@@ -172,14 +265,14 @@ class PredictionDetailsScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        item.cropName,
+                        _item.cropName,
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: AppColors.textDark,
                             ),
                       ),
                       Text(
-                        item.date,
+                        _item.date,
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],
@@ -196,7 +289,7 @@ class PredictionDetailsScreen extends StatelessWidget {
                         ),
                   ),
                   Text(
-                    '${(item.confidenceScore * 100).toInt()}%',
+                    '${(_item.confidenceScore * 100).toInt()}%',
                     style: const TextStyle(
                       color: AppColors.textGreenLink,
                       fontWeight: FontWeight.bold,
@@ -243,13 +336,13 @@ class PredictionDetailsScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildParameterTextRow('Nitrogen (N)', item.nitrogen.toInt().toString()),
+                    _buildParameterTextRow('Nitrogen (N)', _item.nitrogen.toInt().toString()),
                     AppSizes.spaceS,
-                    _buildParameterTextRow('Phosphorus (P)', item.phosphorus.toInt().toString()),
+                    _buildParameterTextRow('Phosphorus (P)', _item.phosphorus.toInt().toString()),
                     AppSizes.spaceS,
-                    _buildParameterTextRow('Potassium (K)', item.potassium.toInt().toString()),
+                    _buildParameterTextRow('Potassium (K)', _item.potassium.toInt().toString()),
                     AppSizes.spaceS,
-                    _buildParameterTextRow('Soil pH', item.ph.toString()),
+                    _buildParameterTextRow('Soil pH', _item.ph.toString()),
                   ],
                 ),
               ),
@@ -259,9 +352,11 @@ class PredictionDetailsScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildParameterTextRow('Temperature (°C)', item.temperature.toString()),
+                    _buildParameterTextRow('Temperature (°C)', _item.temperature.toString()),
                     AppSizes.spaceS,
-                    _buildParameterTextRow('Rainfall (mm)', item.rainfall.toString()),
+                    _buildParameterTextRow('Humidity (%)', _item.humidity.toString()),
+                    AppSizes.spaceS,
+                    _buildParameterTextRow('Rainfall (mm)', _item.rainfall.toString()),
                   ],
                 ),
               ),
@@ -296,8 +391,50 @@ class PredictionDetailsScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildAdviceCard(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSizes.l),
+      decoration: BoxDecoration(
+        color: AppColors.white.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(AppSizes.radiusLarge),
+        border: Border.all(
+          color: AppColors.white.withValues(alpha: 0.8),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.lightbulb_outline_rounded, color: AppColors.primaryGreen, size: 20),
+              const SizedBox(width: AppSizes.s),
+              Text(
+                'Expert Advice',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textDark,
+                    ),
+              ),
+            ],
+          ),
+          AppSizes.spaceM,
+          Text(
+            _item.advice!,
+            style: const TextStyle(
+              color: AppColors.textMedium,
+              fontSize: 13,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildFertilizerRecommendationCard(BuildContext context) {
-    final hasRecommendation = item.recommendedFertilizer != null;
+    final hasRecommendation = _item.recommendedFertilizer != null;
 
     return Container(
       width: double.infinity,
@@ -342,14 +479,14 @@ class PredictionDetailsScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      item.recommendedFertilizer!,
+                      _item.recommendedFertilizer!,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                             color: AppColors.textDark,
                           ),
                     ),
                     Text(
-                      'Dosage: ${item.fertilizerDosage ?? "N/A"}',
+                      'Dosage: ${_item.fertilizerDosage ?? "N/A"}',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: AppColors.textMedium,
                           ),
@@ -369,22 +506,32 @@ class PredictionDetailsScreen extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () {
-                      final fertCtrl = FertilizerController(fertilizerRepo: HttpFertilizerRepo());
+                    onPressed: () async {
+                      final navigator = Navigator.of(context);
+                      String? token;
+                      final saved = await TokenStorage.loadTokens();
+                      token = saved?.access;
+
+                      final fertCtrl = FertilizerController(
+                        fertilizerRepo: HttpFertilizerRepo(),
+                        userToken: token,
+                      );
                       fertCtrl.prefillFromCropResult(
-                        crop: item.cropName,
-                        n: item.nitrogen,
-                        p: item.phosphorus,
-                        k: item.potassium,
-                        phVal: item.ph,
+                        crop: _item.cropName,
+                        n: _item.nitrogen,
+                        p: _item.phosphorus,
+                        k: _item.potassium,
+                        phVal: _item.ph,
                         location: PredictController.locationOptions[0],
                         season: 'Monsoon',
                       );
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => PredictFertilizerScreen(controller: fertCtrl),
-                        ),
-                      );
+                      if (mounted) {
+                        navigator.push(
+                          MaterialPageRoute(
+                            builder: (context) => PredictFertilizerScreen(controller: fertCtrl),
+                          ),
+                        );
+                      }
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primaryGreen,

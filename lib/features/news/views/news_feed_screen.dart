@@ -8,7 +8,6 @@ import '../models/news_article_model.dart';
 import 'news_detail_screen.dart';
 
 import 'category_subscription_screen.dart';
-import 'admin_news_screen.dart';
 
 class NewsFeedScreen extends StatefulWidget {
   final NewsController controller;
@@ -30,7 +29,9 @@ class _NewsFeedScreenState extends State<NewsFeedScreen> {
   @override
   void initState() {
     super.initState();
-    widget.controller.init();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      widget.controller.init();
+    });
   }
 
   @override
@@ -42,21 +43,6 @@ class _NewsFeedScreenState extends State<NewsFeedScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      floatingActionButton: widget.isStaff
-          ? FloatingActionButton.extended(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => AdminNewsScreen(controller: widget.controller),
-                  ),
-                );
-              },
-              backgroundColor: AppColors.primaryGreen,
-              icon: const Icon(Icons.add_rounded, color: AppColors.white),
-              label: const Text('Publish News', style: TextStyle(color: AppColors.white)),
-            )
-          : null,
       body: Stack(
         children: [
           // Background Image
@@ -172,17 +158,21 @@ class _NewsFeedScreenState extends State<NewsFeedScreen> {
                   color: AppColors.textDark,
                 ),
           ),
-          IconButton(
-            icon: const Icon(Icons.notifications_active_outlined, color: AppColors.primaryGreen),
-            tooltip: 'Topic Subscriptions',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => CategorySubscriptionScreen(controller: widget.controller),
-                ),
-              );
-            },
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.notifications_active_outlined, color: AppColors.primaryGreen),
+                tooltip: 'Topic Subscriptions',
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => CategorySubscriptionScreen(controller: widget.controller),
+                    ),
+                  );
+                },
+              ),
+            ],
           ),
         ],
       ),

@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use
+
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
@@ -5,7 +7,9 @@ import '../../../core/constants/app_sizes.dart';
 import '../../../core/widgets/glass_card.dart';
 import '../controllers/news_controller.dart';
 import '../models/news_article_model.dart';
-import '../models/news_category_model.dart';
+import '../../auth/views/admin_login_screen.dart';
+import 'create_news_article_screen.dart';
+import 'news_detail_screen.dart';
 
 class AdminNewsScreen extends StatefulWidget {
   final NewsController controller;
@@ -20,32 +24,21 @@ class AdminNewsScreen extends StatefulWidget {
 }
 
 class _AdminNewsScreenState extends State<AdminNewsScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _titleController = TextEditingController();
-  final _summaryController = TextEditingController();
-  final _contentController = TextEditingController();
-  final _imageUrlController = TextEditingController();
-
-  NewsCategoryModel? _selectedCategory;
-  String _status = 'PUBLISHED';
+  final _searchController = TextEditingController();
   List<NewsArticleModel> _adminArticles = [];
   bool _isLoadingList = false;
+  String _selectedFilter = 'ALL'; // ALL, PUBLISHED, DRAFT
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
-    _loadAdminNews();
-    if (widget.controller.categories.isNotEmpty) {
-      _selectedCategory = widget.controller.categories.first;
-    } else {
-      widget.controller.fetchCategories().then((_) {
-        if (widget.controller.categories.isNotEmpty && mounted) {
-          setState(() {
-            _selectedCategory = widget.controller.categories.first;
-          });
-        }
-      });
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadAdminNews();
+      if (widget.controller.categories.isEmpty) {
+        widget.controller.fetchCategories();
+      }
+    });
   }
 
   Future<void> _loadAdminNews() async {
@@ -61,14 +54,56 @@ class _AdminNewsScreenState extends State<AdminNewsScreen> {
 
   @override
   void dispose() {
-    _titleController.dispose();
-    _summaryController.dispose();
-    _contentController.dispose();
-    _imageUrlController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
-  void _showCreateDialog() {
+  List<NewsArticleModel> get _filteredArticles {
+    return _adminArticles.where((article) {
+      final statusUpper = article.status.toUpperCase();
+      final matchesFilter = _selectedFilter == 'ALL' ||
+          (_selectedFilter == 'PUBLISHED' && statusUpper == 'PUBLISHED') ||
+          (_selectedFilter == 'DRAFT' && statusUpper == 'DRAFT');
+      final matchesSearch = _searchQuery.isEmpty ||
+          article.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          article.summary.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          article.category.name.toLowerCase().contains(_searchQuery.toLowerCase());
+      return matchesFilter && matchesSearch;
+    }).toList();
+  }
+
+  void _showPostDialog() async {
+    if (!widget.controller.isAdminLoggedIn) {
+      _promptAdminLogin();
+      return;
+    }
+
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CreateNewsArticleScreen(controller: widget.controller),
+      ),
+    );
+    if (result == true && mounted) {
+      _loadAdminNews();
+    }
+  }
+
+  void _showEditDialog(NewsArticleModel article) {
+    if (!widget.controller.isAdminLoggedIn) {
+      _promptAdminLogin();
+      return;
+    }
+
+    final formKey = GlobalKey<FormState>();
+    final titleController = TextEditingController(text: article.title);
+    final summaryController = TextEditingController(text: article.summary);
+    final contentController = TextEditingController(text: article.content ?? '');
+    final imageUrlController = TextEditingController(text: article.imageUrl ?? '');
+
+    int? selectedCategoryId = article.category.id;
+    String status = article.status;
+
     showDialog(
       context: context,
       builder: (dialogCtx) {
@@ -76,60 +111,87 @@ class _AdminNewsScreenState extends State<AdminNewsScreen> {
           builder: (context, setDialogState) {
             return AlertDialog(
               backgroundColor: AppColors.backgroundGreen,
-              title: const Text('Publish / Draft News Article', style: TextStyle(fontWeight: FontWeight.bold)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: const [
+                  Icon(Icons.edit_note_rounded, color: AppColors.primaryGreen),
+                  SizedBox(width: 8),
+                  Text('Edit News Article', style: TextStyle(fontWeight: FontWeight.bold)),
+                ],
+              ),
               content: SingleChildScrollView(
                 child: Form(
-                  key: _formKey,
+                  key: formKey,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       TextFormField(
-                        controller: _titleController,
-                        decoration: const InputDecoration(labelText: 'Title *'),
-                        validator: (val) => val == null || val.trim().isEmpty ? 'Enter title' : null,
+                        controller: titleController,
+                        decoration: const InputDecoration(
+                          labelText: 'Title *',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (val) => val == null || val.trim().isEmpty ? 'Title is required' : null,
                       ),
                       AppSizes.spaceS,
                       TextFormField(
-                        controller: _summaryController,
-                        decoration: const InputDecoration(labelText: 'Summary *'),
-                        validator: (val) => val == null || val.trim().isEmpty ? 'Enter summary' : null,
+                        controller: summaryController,
+                        maxLines: 2,
+                        decoration: const InputDecoration(
+                          labelText: 'Summary *',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (val) => val == null || val.trim().isEmpty ? 'Summary is required' : null,
                       ),
                       AppSizes.spaceS,
                       TextFormField(
-                        controller: _contentController,
-                        maxLines: 4,
-                        decoration: const InputDecoration(labelText: 'Full Content *'),
-                        validator: (val) => val == null || val.trim().isEmpty ? 'Enter content' : null,
+                        controller: contentController,
+                        maxLines: 5,
+                        decoration: const InputDecoration(
+                          labelText: 'Full Content *',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (val) => val == null || val.trim().isEmpty ? 'Content is required' : null,
                       ),
                       AppSizes.spaceS,
                       TextFormField(
-                        controller: _imageUrlController,
-                        decoration: const InputDecoration(labelText: 'Image URL (Optional)'),
+                        controller: imageUrlController,
+                        decoration: const InputDecoration(
+                          labelText: 'Image URL (Optional)',
+                          border: OutlineInputBorder(),
+                        ),
                       ),
                       AppSizes.spaceS,
-                      DropdownButtonFormField<NewsCategoryModel>(
-                        initialValue: _selectedCategory,
+                      DropdownButtonFormField<int>(
+                        value: (widget.controller.categories.any((c) => c.id == selectedCategoryId))
+                            ? selectedCategoryId
+                            : (widget.controller.categories.isNotEmpty ? widget.controller.categories.first.id : null),
                         items: widget.controller.categories.map((cat) {
-                          return DropdownMenuItem(value: cat, child: Text(cat.name));
+                          return DropdownMenuItem<int>(value: cat.id, child: Text(cat.name));
                         }).toList(),
                         onChanged: (val) {
-                          setDialogState(() => _selectedCategory = val);
+                          if (val != null) setDialogState(() => selectedCategoryId = val);
                         },
-                        decoration: const InputDecoration(labelText: 'Category *'),
+                        decoration: const InputDecoration(
+                          labelText: 'Category *',
+                          border: OutlineInputBorder(),
+                        ),
                       ),
                       AppSizes.spaceS,
                       DropdownButtonFormField<String>(
-                        initialValue: _status,
+                        initialValue: status,
                         items: const [
-                          DropdownMenuItem(value: 'PUBLISHED', child: Text('Publish Immediately')),
-                          DropdownMenuItem(value: 'DRAFT', child: Text('Save as Draft')),
+                          DropdownMenuItem(value: 'PUBLISHED', child: Text('PUBLISHED')),
+                          DropdownMenuItem(value: 'DRAFT', child: Text('DRAFT')),
                         ],
                         onChanged: (val) {
-                          if (val != null) setDialogState(() => _status = val);
+                          if (val != null) setDialogState(() => status = val);
                         },
-                        decoration: const InputDecoration(labelText: 'Publication Status'),
+                        decoration: const InputDecoration(
+                          labelText: 'Status',
+                          border: OutlineInputBorder(),
+                        ),
                       ),
-
                     ],
                   ),
                 ),
@@ -139,30 +201,35 @@ class _AdminNewsScreenState extends State<AdminNewsScreen> {
                   onPressed: () => Navigator.pop(dialogCtx),
                   child: const Text('Cancel'),
                 ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryGreen),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryGreen,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  icon: const Icon(Icons.save_rounded, size: 18, color: Colors.white),
+                  label: const Text('Save Changes', style: TextStyle(color: AppColors.white)),
                   onPressed: () async {
-                    if (_formKey.currentState?.validate() ?? false) {
-                      if (_selectedCategory == null) return;
+                    if (formKey.currentState?.validate() ?? false) {
+                      final messenger = ScaffoldMessenger.of(context);
                       Navigator.pop(dialogCtx);
-                      final success = await widget.controller.createAdminArticle(
-                        title: _titleController.text.trim(),
-                        summary: _summaryController.text.trim(),
-                        content: _contentController.text.trim(),
-                        categoryId: _selectedCategory!.id,
-                        imageUrl: _imageUrlController.text.trim().isEmpty ? null : _imageUrlController.text.trim(),
-                        status: _status,
+                      final success = await widget.controller.updateAdminArticle(
+                        article.id,
+                        title: titleController.text.trim(),
+                        summary: summaryController.text.trim(),
+                        content: contentController.text.trim(),
+                        categoryId: selectedCategoryId,
+                        imageUrl: imageUrlController.text.trim().isEmpty ? null : imageUrlController.text.trim(),
+                        status: status,
                       );
-                      if (success) {
-                        _titleController.clear();
-                        _summaryController.clear();
-                        _contentController.clear();
-                        _imageUrlController.clear();
-                        _loadAdminNews();
-                      }
+                      messenger.showSnackBar(
+                        SnackBar(
+                          content: Text(success ? 'Article updated successfully!' : 'Failed to update article.'),
+                          backgroundColor: success ? Colors.green : Colors.red,
+                        ),
+                      );
+                      if (success && mounted) _loadAdminNews();
                     }
                   },
-                  child: const Text('Save', style: TextStyle(color: AppColors.white)),
                 ),
               ],
             );
@@ -172,14 +239,75 @@ class _AdminNewsScreenState extends State<AdminNewsScreen> {
     );
   }
 
+  void _showViewDialog(NewsArticleModel article) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => NewsDetailScreen(
+          initialArticle: article,
+          controller: widget.controller,
+        ),
+      ),
+    );
+  }
+
+  void _confirmDelete(NewsArticleModel article) async {
+    if (!widget.controller.isAdminLoggedIn) {
+      _promptAdminLogin();
+      return;
+    }
+
+    final messenger = ScaffoldMessenger.of(context);
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: const [
+            Icon(Icons.warning_amber_rounded, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Delete News Article'),
+          ],
+        ),
+        content: Text('Are you sure you want to permanently delete "${article.title}"?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      final success = await widget.controller.deleteAdminArticle(article.id);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(success ? 'Article deleted successfully!' : 'Failed to delete article.'),
+          backgroundColor: success ? Colors.green : Colors.red,
+        ),
+      );
+      if (success && mounted) _loadAdminNews();
+    }
+  }
+
+  Future<void> _promptAdminLogin() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AdminLoginScreen(newsController: widget.controller),
+      ),
+    );
+    if (mounted && widget.controller.isAdminLoggedIn) {
+      _loadAdminNews();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: AppColors.primaryGreen,
-        onPressed: _showCreateDialog,
-        child: const Icon(Icons.add_rounded, color: AppColors.white),
-      ),
       body: Stack(
         children: [
           Positioned.fill(
@@ -202,17 +330,51 @@ class _AdminNewsScreenState extends State<AdminNewsScreen> {
             child: Column(
               children: [
                 _buildAppBar(context),
+                _buildAdminAuthStatus(),
+                _buildSearchBar(),
+                _buildFilterChips(),
                 Expanded(
                   child: _isLoadingList
                       ? const Center(child: CircularProgressIndicator(color: AppColors.primaryGreen))
-                      : _adminArticles.isEmpty
-                          ? const Center(child: Text('No articles posted yet.'))
+                      : _filteredArticles.isEmpty
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.newspaper_rounded, size: 64, color: AppColors.textMedium.withValues(alpha: 0.5)),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    _searchQuery.isNotEmpty
+                                        ? 'No articles match "$_searchQuery"'
+                                        : widget.controller.isAdminLoggedIn
+                                            ? 'No articles found in this filter.'
+                                            : 'Please login as Admin to view and manage news.',
+                                    style: const TextStyle(color: AppColors.textMedium),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  if (widget.controller.isAdminLoggedIn)
+                                    ElevatedButton.icon(
+                                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryGreen),
+                                      icon: const Icon(Icons.add_rounded, color: Colors.white),
+                                      label: const Text('Post First News Article', style: TextStyle(color: Colors.white)),
+                                      onPressed: _showPostDialog,
+                                    )
+                                  else
+                                    ElevatedButton.icon(
+                                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryGreen),
+                                      icon: const Icon(Icons.lock_open_rounded, color: Colors.white),
+                                      label: const Text('Admin Login', style: TextStyle(color: Colors.white)),
+                                      onPressed: _promptAdminLogin,
+                                    ),
+                                ],
+                              ),
+                            )
                           : ListView.separated(
                               padding: const EdgeInsets.all(AppSizes.l),
-                              itemCount: _adminArticles.length,
+                              itemCount: _filteredArticles.length,
                               separatorBuilder: (context, index) => AppSizes.spaceM,
                               itemBuilder: (context, index) {
-                                final article = _adminArticles[index];
+                                final article = _filteredArticles[index];
                                 return _buildAdminArticleCard(article);
                               },
                             ),
@@ -235,19 +397,156 @@ class _AdminNewsScreenState extends State<AdminNewsScreen> {
             icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.textDark),
             onPressed: () => Navigator.of(context).pop(),
           ),
-          Text(
-            'Admin News Management',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textDark,
-                ),
+          Expanded(
+            child: Text(
+              'Admin News Management',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textDark,
+                  ),
+            ),
           ),
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded, color: AppColors.primaryGreen),
-            onPressed: _loadAdminNews,
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.add_circle_outline_rounded, color: AppColors.primaryGreen, size: 28),
+                tooltip: 'Post New Article',
+                onPressed: _showPostDialog,
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh_rounded, color: AppColors.primaryGreen),
+                tooltip: 'Refresh News',
+                onPressed: _loadAdminNews,
+              ),
+            ],
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildAdminAuthStatus() {
+    final isLoggedIn = widget.controller.isAdminLoggedIn;
+    final token = widget.controller.adminToken;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: AppSizes.l, vertical: AppSizes.xs),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: isLoggedIn ? Colors.green.shade50.withValues(alpha: 0.8) : Colors.amber.shade50.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: isLoggedIn ? Colors.green.shade300 : Colors.amber.shade400),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isLoggedIn ? Icons.verified_user_rounded : Icons.lock_outline_rounded,
+            color: isLoggedIn ? Colors.green.shade800 : Colors.amber.shade900,
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              isLoggedIn
+                  ? 'Admin Token Active: ${token != null && token.length > 15 ? "${token.substring(0, 15)}..." : token}'
+                  : 'Admin Token Required: Please log in as admin.',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: isLoggedIn ? Colors.green.shade900 : Colors.amber.shade900,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              if (isLoggedIn) {
+                widget.controller.logoutAdmin();
+                setState(() => _adminArticles = []);
+              } else {
+                await _promptAdminLogin();
+              }
+            },
+            child: Text(
+              isLoggedIn ? 'Logout' : 'Login',
+              style: TextStyle(
+                color: isLoggedIn ? Colors.red.shade700 : AppColors.primaryGreen,
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSizes.l, vertical: AppSizes.xs),
+      child: TextField(
+        controller: _searchController,
+        onChanged: (val) {
+          setState(() => _searchQuery = val.trim());
+        },
+        decoration: InputDecoration(
+          hintText: 'Search articles by title or category...',
+          prefixIcon: const Icon(Icons.search_rounded, color: AppColors.primaryGreen),
+          suffixIcon: _searchQuery.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear_rounded),
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() => _searchQuery = '');
+                  },
+                )
+              : null,
+          filled: true,
+          fillColor: Colors.white.withValues(alpha: 0.6),
+          contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(30),
+            borderSide: BorderSide.none,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterChips() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: AppSizes.l, vertical: AppSizes.xs),
+      child: Row(
+        children: [
+          _buildFilterChip('ALL', 'All Articles'),
+          const SizedBox(width: 8),
+          _buildFilterChip('PUBLISHED', 'Published Only'),
+          const SizedBox(width: 8),
+          _buildFilterChip('DRAFT', 'Drafts Only'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(String value, String label) {
+    final isSelected = _selectedFilter == value;
+    return ChoiceChip(
+      label: Text(
+        label,
+        style: TextStyle(
+          color: isSelected ? Colors.white : AppColors.textDark,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        ),
+      ),
+      selected: isSelected,
+      selectedColor: AppColors.primaryGreen,
+      backgroundColor: Colors.white.withValues(alpha: 0.5),
+      onSelected: (selected) {
+        if (selected) {
+          setState(() => _selectedFilter = value);
+        }
+      },
     );
   }
 
@@ -256,84 +555,102 @@ class _AdminNewsScreenState extends State<AdminNewsScreen> {
 
     return GlassCard(
       padding: const EdgeInsets.all(AppSizes.m),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: isPublished ? Colors.green.shade100 : Colors.orange.shade100,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  article.status,
-                  style: TextStyle(
-                    color: isPublished ? Colors.green.shade800 : Colors.orange.shade800,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 10,
+      child: InkWell(
+        onTap: () => _showViewDialog(article),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: isPublished ? Colors.green.shade100 : Colors.orange.shade100,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    article.status,
+                    style: TextStyle(
+                      color: isPublished ? Colors.green.shade800 : Colors.orange.shade800,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 10,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                article.category.name,
-                style: const TextStyle(fontSize: 11, color: AppColors.textMedium),
-              ),
-              const Spacer(),
-              if (!isPublished)
+                const SizedBox(width: 8),
+                Text(
+                  article.category.name,
+                  style: const TextStyle(fontSize: 11, color: AppColors.textMedium, fontWeight: FontWeight.w600),
+                ),
+                const Spacer(),
                 TextButton.icon(
-                  onPressed: () async {
-                    final success = await widget.controller.publishAdminArticle(article.id);
-                    if (success) _loadAdminNews();
-                  },
-                  icon: const Icon(Icons.publish_rounded, size: 16, color: AppColors.primaryGreen),
-                  label: const Text('Publish', style: TextStyle(color: AppColors.primaryGreen)),
+                  style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0)),
+                  icon: const Icon(Icons.visibility_outlined, size: 16, color: AppColors.textDark),
+                  label: const Text('View', style: TextStyle(fontSize: 11, color: AppColors.textDark)),
+                  onPressed: () => _showViewDialog(article),
                 ),
-              IconButton(
-                icon: const Icon(Icons.delete_outline_rounded, color: Colors.red, size: 20),
-                onPressed: () async {
-                  final confirm = await showDialog<bool>(
-                    context: context,
-                    builder: (ctx) => AlertDialog(
-                      title: const Text('Delete Article'),
-                      content: const Text('Are you sure you want to delete this news article?'),
-                      actions: [
-                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                          onPressed: () => Navigator.pop(ctx, true),
-                          child: const Text('Delete', style: TextStyle(color: Colors.white)),
-                        ),
-                      ],
-                    ),
-                  );
-
-                  if (confirm == true) {
-                    final success = await widget.controller.deleteAdminArticle(article.id);
-                    if (success) _loadAdminNews();
-                  }
-                },
-              ),
-            ],
-          ),
-          AppSizes.spaceS,
-          Text(
-            article.title,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textDark,
+                TextButton.icon(
+                  style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0)),
+                  icon: const Icon(Icons.edit_outlined, size: 16, color: AppColors.primaryGreen),
+                  label: const Text('Edit', style: TextStyle(fontSize: 11, color: AppColors.primaryGreen)),
+                  onPressed: () => _showEditDialog(article),
                 ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            article.summary,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textMedium),
-          ),
-        ],
+                if (!isPublished)
+                  TextButton.icon(
+                    style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0)),
+                    icon: const Icon(Icons.publish_rounded, size: 16, color: Colors.blue),
+                    label: const Text('Publish', style: TextStyle(fontSize: 11, color: Colors.blue)),
+                    onPressed: () async {
+                      final messenger = ScaffoldMessenger.of(context);
+                      final success = await widget.controller.publishAdminArticle(article.id);
+                      messenger.showSnackBar(
+                        SnackBar(content: Text(success ? 'Article published!' : 'Failed to publish.')),
+                      );
+                      if (success && mounted) _loadAdminNews();
+                    },
+                  ),
+                IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  icon: const Icon(Icons.delete_outline_rounded, color: Colors.red, size: 18),
+                  tooltip: 'Delete Article',
+                  onPressed: () => _confirmDelete(article),
+                ),
+              ],
+            ),
+            AppSizes.spaceS,
+            Text(
+              article.title,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textDark,
+                  ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              article.summary,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textMedium),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                if (article.createdBy != null)
+                  Text(
+                    'By ${article.createdBy}',
+                    style: const TextStyle(fontSize: 10, color: AppColors.textMedium),
+                  ),
+                if (article.createdAt != null)
+                  Text(
+                    article.createdAt!.toLocal().toString().split(' ').first,
+                    style: const TextStyle(fontSize: 10, color: AppColors.textMedium),
+                  ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

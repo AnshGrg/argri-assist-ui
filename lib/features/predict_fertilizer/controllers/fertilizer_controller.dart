@@ -4,12 +4,17 @@ import '../models/fertilizer_request_model.dart';
 import '../models/fertilizer_result_model.dart';
 import '../repos/fertilizer_repo.dart';
 import '../../../core/services/mock_database.dart';
+import '../../../core/services/token_storage.dart';
 import '../../history/models/history_item_model.dart';
 
 class FertilizerController extends ChangeNotifier {
   final FertilizerRepo _fertilizerRepo;
+  final String? userToken;
 
-  FertilizerController({required FertilizerRepo fertilizerRepo}) : _fertilizerRepo = fertilizerRepo;
+  FertilizerController({
+    required FertilizerRepo fertilizerRepo,
+    this.userToken,
+  }) : _fertilizerRepo = fertilizerRepo;
 
   static const List<LocationOption> locationOptions = PredictController.locationOptions;
   static const List<String> seasonOptions = PredictController.seasonOptions;
@@ -41,6 +46,9 @@ class FertilizerController extends ChangeNotifier {
   static List<String> _crops = [];
   List<String> get crops => _crops;
 
+  static List<String> _fertilizers = [];
+  List<String> get fertilizers => _fertilizers;
+
   static Future<void> prefetchCrops(FertilizerRepo repo) async {
     if (_crops.isNotEmpty) return;
     try {
@@ -48,6 +56,14 @@ class FertilizerController extends ChangeNotifier {
     } catch (_) {
       // Fail silently without any error or retry
     }
+  }
+
+  Future<void> fetchFertilizers() async {
+    if (_fertilizers.isNotEmpty) return;
+    try {
+      _fertilizers = await _fertilizerRepo.getFertilizers();
+      notifyListeners();
+    } catch (_) {}
   }
 
   bool _isFetchingCrops = false;
@@ -151,7 +167,13 @@ class FertilizerController extends ChangeNotifier {
         longitude: _selectedLocation.longitude,
         season: _selectedSeason,
       );
-      _predictionResult = await _fertilizerRepo.predictFertilizer(request);
+      var effectiveToken = userToken;
+      if (effectiveToken == null || effectiveToken.isEmpty) {
+        final saved = await TokenStorage.loadTokens();
+        effectiveToken = saved?.access;
+      }
+
+      _predictionResult = await _fertilizerRepo.predictFertilizer(request, token: effectiveToken);
     } catch (e) {
       _errorMessage = '$e'.replaceAll('Exception: ', '');
     } finally {

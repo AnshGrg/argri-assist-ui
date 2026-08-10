@@ -25,7 +25,9 @@ class _NotificationListScreenState extends State<NotificationListScreen> {
   @override
   void initState() {
     super.initState();
-    widget.controller.fetchNotifications();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      widget.controller.fetchNotifications();
+    });
   }
 
   @override

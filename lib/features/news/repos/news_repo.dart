@@ -6,17 +6,20 @@ import '../models/news_article_model.dart';
 
 abstract class NewsRepo {
   Future<List<NewsCategoryModel>> getCategories({String? token});
-  Future<List<NewsArticleModel>> getFarmerNewsFeed({int? categoryId, String? search, String? token});
+  Future<List<NewsArticleModel>> getFarmerNewsFeed({int? categoryId, String? categoryName, String? search, String? token});
   Future<NewsArticleModel> getNewsDetail(int newsId, {String? token});
 
   // Admin Endpoints
   Future<List<NewsArticleModel>> getAdminNewsList({String? token});
+  Future<NewsArticleModel> getAdminNewsDetail(int id, {String? token});
   Future<NewsArticleModel> createAdminNews({
     required String title,
     required String summary,
     required String content,
     required int categoryId,
     String? imageUrl,
+    List<int>? imageBytes,
+    String? imageName,
     String status = 'DRAFT',
     String? token,
   });
@@ -27,6 +30,8 @@ abstract class NewsRepo {
     String? content,
     int? categoryId,
     String? imageUrl,
+    List<int>? imageBytes,
+    String? imageName,
     String? status,
     String? token,
   });
@@ -36,58 +41,157 @@ abstract class NewsRepo {
 
 class HttpNewsRepo implements NewsRepo {
   Map<String, String> _headers(String? token) {
-    final headers = <String, String>{'Content-Type': 'application/json'};
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+      'ngrok-skip-browser-warning': 'true',
+    };
     if (token != null && token.isNotEmpty) {
       headers['Authorization'] = 'Bearer $token';
     }
     return headers;
   }
 
+  static const List<NewsCategoryModel> _defaultCategories = [
+    NewsCategoryModel(id: 1, name: 'Weather Alerts', description: 'Severe weather notices and rainfall forecasts'),
+    NewsCategoryModel(id: 2, name: 'Crop Management', description: 'Seasonal planting and harvesting guidelines'),
+    NewsCategoryModel(id: 3, name: 'Fertilizer', description: 'Fertilizer availability and dosage advisories'),
+    NewsCategoryModel(id: 4, name: 'Pest & Disease', description: 'Pest outbreak alerts and treatment steps'),
+    NewsCategoryModel(id: 5, name: 'Government Schemes', description: 'Nepal government subsidies and farming schemes'),
+    NewsCategoryModel(id: 6, name: 'Organic Farming', description: 'Organic compost and biological pest control guidelines'),
+    NewsCategoryModel(id: 7, name: 'Farming Techniques', description: 'Modern precision farming methods and machinery usage'),
+  ];
+
   @override
   Future<List<NewsCategoryModel>> getCategories({String? token}) async {
-    try {
-      final response = await http
-          .get(Uri.parse(ApiEndpoints.newsCategories), headers: _headers(token))
-          .timeout(const Duration(seconds: 10));
+    final uri = Uri.parse(ApiEndpoints.newsCategories);
 
+    // 1. Try with token headers
+    try {
+      final response = await http.get(uri, headers: _headers(token)).timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-        final list = decoded['categories'] as List? ?? [];
-        return list.map((item) => NewsCategoryModel.fromJson(item)).toList();
+        final decoded = jsonDecode(response.body);
+        List list = [];
+        if (decoded is List) {
+          list = decoded;
+        } else if (decoded is Map<String, dynamic>) {
+          list = (decoded['categories'] as List?) ?? (decoded['results'] as List?) ?? [];
+        }
+        if (list.isNotEmpty) {
+          return list.map((item) => NewsCategoryModel.fromJson(item as Map<String, dynamic>)).toList();
+        }
       }
-      throw Exception('Failed to load categories (${response.statusCode})');
-    } catch (e) {
-      throw Exception('NewsRepo Error: $e');
-    }
+    } catch (_) {}
+
+    // 2. Try minimal ngrok header
+    try {
+      final response = await http.get(uri, headers: {'ngrok-skip-browser-warning': 'true'}).timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        List list = [];
+        if (decoded is List) {
+          list = decoded;
+        } else if (decoded is Map<String, dynamic>) {
+          list = (decoded['categories'] as List?) ?? (decoded['results'] as List?) ?? [];
+        }
+        if (list.isNotEmpty) {
+          return list.map((item) => NewsCategoryModel.fromJson(item as Map<String, dynamic>)).toList();
+        }
+      }
+    } catch (_) {}
+
+    // 3. Try basic GET
+    try {
+      final response = await http.get(uri).timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        List list = [];
+        if (decoded is List) {
+          list = decoded;
+        } else if (decoded is Map<String, dynamic>) {
+          list = (decoded['categories'] as List?) ?? (decoded['results'] as List?) ?? [];
+        }
+        if (list.isNotEmpty) {
+          return list.map((item) => NewsCategoryModel.fromJson(item as Map<String, dynamic>)).toList();
+        }
+      }
+    } catch (_) {}
+
+    return _defaultCategories;
   }
 
   @override
-  Future<List<NewsArticleModel>> getFarmerNewsFeed({int? categoryId, String? search, String? token}) async {
+  Future<List<NewsArticleModel>> getFarmerNewsFeed({int? categoryId, String? categoryName, String? search, String? token}) async {
+    final queryParams = <String, String>{};
+    if (categoryId != null) queryParams['category'] = categoryId.toString();
+    if (categoryName != null && categoryName.trim().isNotEmpty) queryParams['category__name'] = categoryName.trim();
+    if (search != null && search.trim().isNotEmpty) queryParams['search'] = search.trim();
+
+    final uri = Uri.parse(ApiEndpoints.farmerNewsFeed).replace(queryParameters: queryParams.isEmpty ? null : queryParams);
+
+    // 1. Try with Auth token headers
     try {
-      final queryParams = <String, String>{};
-      if (categoryId != null) queryParams['category'] = categoryId.toString();
-      if (search != null && search.trim().isNotEmpty) queryParams['search'] = search.trim();
-
-      final uri = Uri.parse(ApiEndpoints.farmerNewsFeed).replace(queryParameters: queryParams.isEmpty ? null : queryParams);
       final response = await http.get(uri, headers: _headers(token)).timeout(const Duration(seconds: 10));
-
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-        final results = decoded['results'] as List? ?? [];
-        return results.map((item) => NewsArticleModel.fromJson(item)).toList();
+        final decoded = jsonDecode(response.body);
+        List list = [];
+        if (decoded is List) {
+          list = decoded;
+        } else if (decoded is Map<String, dynamic>) {
+          list = (decoded['results'] as List?) ?? (decoded['articles'] as List?) ?? [];
+        }
+        if (list.isNotEmpty) {
+          return list.map((item) => NewsArticleModel.fromJson(item as Map<String, dynamic>)).toList();
+        }
       }
-      throw Exception('Failed to fetch news feed (${response.statusCode})');
-    } catch (e) {
-      throw Exception('NewsRepo Error: $e');
-    }
+    } catch (_) {}
+
+    // 2. Try minimal ngrok header
+    try {
+      final response = await http.get(uri, headers: {'ngrok-skip-browser-warning': 'true'}).timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        List list = [];
+        if (decoded is List) {
+          list = decoded;
+        } else if (decoded is Map<String, dynamic>) {
+          list = (decoded['results'] as List?) ?? (decoded['articles'] as List?) ?? [];
+        }
+        if (list.isNotEmpty) {
+          return list.map((item) => NewsArticleModel.fromJson(item as Map<String, dynamic>)).toList();
+        }
+      }
+    } catch (_) {}
+
+    // 3. Try standard GET without custom headers (bypasses browser CORS preflight restrictions)
+    try {
+      final response = await http.get(uri).timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        List list = [];
+        if (decoded is List) {
+          list = decoded;
+        } else if (decoded is Map<String, dynamic>) {
+          list = (decoded['results'] as List?) ?? (decoded['articles'] as List?) ?? [];
+        }
+        return list.map((item) => NewsArticleModel.fromJson(item as Map<String, dynamic>)).toList();
+      }
+    } catch (_) {}
+
+    return [];
   }
 
   @override
   Future<NewsArticleModel> getNewsDetail(int newsId, {String? token}) async {
     try {
-      final response = await http
+      var response = await http
           .get(Uri.parse(ApiEndpoints.farmerNewsDetail(newsId)), headers: _headers(token))
           .timeout(const Duration(seconds: 10));
+
+      if ((response.statusCode == 401 || response.statusCode == 403) && token != null) {
+        response = await http
+            .get(Uri.parse(ApiEndpoints.farmerNewsDetail(newsId)), headers: _headers(null))
+            .timeout(const Duration(seconds: 10));
+      }
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body) as Map<String, dynamic>;
@@ -102,20 +206,60 @@ class HttpNewsRepo implements NewsRepo {
 
   @override
   Future<List<NewsArticleModel>> getAdminNewsList({String? token}) async {
+    // 1. Fetch news feed /api/news/ with admin token
+    try {
+      final farmerNews = await getFarmerNewsFeed(token: token);
+      if (farmerNews.isNotEmpty) {
+        return farmerNews;
+      }
+    } catch (_) {}
+
+    // 2. Fetch news feed /api/news/ without token (public request)
+    try {
+      final farmerNewsNoToken = await getFarmerNewsFeed(token: null);
+      if (farmerNewsNoToken.isNotEmpty) {
+        return farmerNewsNoToken;
+      }
+    } catch (_) {}
+
+    // 3. Fallback to admin endpoint /api/admin/news/
     try {
       final response = await http
           .get(Uri.parse(ApiEndpoints.adminNews), headers: _headers(token))
           .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-        final results = decoded['results'] as List? ?? [];
-        return results.map((item) => NewsArticleModel.fromJson(item)).toList();
+        final decoded = jsonDecode(response.body);
+        List list = [];
+        if (decoded is List) {
+          list = decoded;
+        } else if (decoded is Map<String, dynamic>) {
+          list = (decoded['results'] as List?) ?? (decoded['articles'] as List?) ?? [];
+        }
+        return list.map((item) => NewsArticleModel.fromJson(item as Map<String, dynamic>)).toList();
       }
-      throw Exception('Failed to fetch admin news list (${response.statusCode})');
+    } catch (_) {}
+
+    return [];
+  }
+
+  @override
+  Future<NewsArticleModel> getAdminNewsDetail(int id, {String? token}) async {
+    try {
+      final response = await http
+          .get(Uri.parse(ApiEndpoints.adminNewsDetail(id)), headers: _headers(token))
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+        final articleJson = decoded['article'] as Map<String, dynamic>? ?? decoded;
+        return NewsArticleModel.fromJson(articleJson);
+      }
     } catch (e) {
-      throw Exception('NewsRepo Admin Error: $e');
+      // Fallback below
     }
+
+    return getNewsDetail(id, token: token);
   }
 
   @override
@@ -125,32 +269,45 @@ class HttpNewsRepo implements NewsRepo {
     required String content,
     required int categoryId,
     String? imageUrl,
+    List<int>? imageBytes,
+    String? imageName,
     String status = 'DRAFT',
     String? token,
   }) async {
     try {
-      final body = jsonEncode({
-        'title': title,
-        'summary': summary,
-        'content': content,
-        'category_id': categoryId,
-        'image_url': ?imageUrl,
+      final request = http.MultipartRequest('POST', Uri.parse(ApiEndpoints.adminNews));
+      if (token != null && token.isNotEmpty) {
+        request.headers['Authorization'] = 'Bearer $token';
+      }
 
+      request.fields['title'] = title;
+      request.fields['summary'] = summary;
+      request.fields['content'] = content;
+      request.fields['category_id'] = categoryId.toString();
+      request.fields['status'] = status;
 
+      if (imageBytes != null && imageBytes.isNotEmpty) {
+        final filename = imageName ?? 'news_image.jpg';
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'image',
+            imageBytes,
+            filename: filename,
+          ),
+        );
+      } else if (imageUrl != null && imageUrl.isNotEmpty) {
+        request.fields['image_url'] = imageUrl;
+      }
 
-        'status': status,
-      });
-
-      final response = await http
-          .post(Uri.parse(ApiEndpoints.adminNews), headers: _headers(token), body: body)
-          .timeout(const Duration(seconds: 10));
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 20));
+      final response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 201 || response.statusCode == 200) {
         final decoded = jsonDecode(response.body) as Map<String, dynamic>;
         final articleJson = decoded['article'] as Map<String, dynamic>? ?? decoded;
         return NewsArticleModel.fromJson(articleJson);
       }
-      throw Exception('Failed to create news (${response.statusCode})');
+      throw Exception('Failed to create news (${response.statusCode}): ${response.body}');
     } catch (e) {
       throw Exception('NewsRepo Admin Create Error: $e');
     }
@@ -164,28 +321,45 @@ class HttpNewsRepo implements NewsRepo {
     String? content,
     int? categoryId,
     String? imageUrl,
+    List<int>? imageBytes,
+    String? imageName,
     String? status,
     String? token,
   }) async {
     try {
-      final payload = <String, dynamic>{};
-      if (title != null) payload['title'] = title;
-      if (summary != null) payload['summary'] = summary;
-      if (content != null) payload['content'] = content;
-      if (categoryId != null) payload['category_id'] = categoryId;
-      if (imageUrl != null) payload['image_url'] = imageUrl;
-      if (status != null) payload['status'] = status;
+      final request = http.MultipartRequest('PATCH', Uri.parse(ApiEndpoints.adminNewsDetail(id)));
+      if (token != null && token.isNotEmpty) {
+        request.headers['Authorization'] = 'Bearer $token';
+      }
 
-      final response = await http
-          .patch(Uri.parse(ApiEndpoints.adminNewsDetail(id)), headers: _headers(token), body: jsonEncode(payload))
-          .timeout(const Duration(seconds: 10));
+      if (title != null) request.fields['title'] = title;
+      if (summary != null) request.fields['summary'] = summary;
+      if (content != null) request.fields['content'] = content;
+      if (categoryId != null) request.fields['category_id'] = categoryId.toString();
+      if (status != null) request.fields['status'] = status;
+
+      if (imageBytes != null && imageBytes.isNotEmpty) {
+        final filename = imageName ?? 'news_image.jpg';
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'image',
+            imageBytes,
+            filename: filename,
+          ),
+        );
+      } else if (imageUrl != null && imageUrl.isNotEmpty) {
+        request.fields['image_url'] = imageUrl;
+      }
+
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 20));
+      final response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body) as Map<String, dynamic>;
         final articleJson = decoded['article'] as Map<String, dynamic>? ?? decoded;
         return NewsArticleModel.fromJson(articleJson);
       }
-      throw Exception('Failed to update news (${response.statusCode})');
+      throw Exception('Failed to update news (${response.statusCode}): ${response.body}');
     } catch (e) {
       throw Exception('NewsRepo Admin Update Error: $e');
     }
@@ -302,11 +476,15 @@ The Ministry of Agriculture and Livestock Development has approved the allocatio
   }
 
   @override
-  Future<List<NewsArticleModel>> getFarmerNewsFeed({int? categoryId, String? search, String? token}) async {
+  Future<List<NewsArticleModel>> getFarmerNewsFeed({int? categoryId, String? categoryName, String? search, String? token}) async {
     await Future.delayed(const Duration(milliseconds: 400));
     var list = _mockArticles.where((a) => a.status == 'PUBLISHED').toList();
     if (categoryId != null) {
       list = list.where((a) => a.category.id == categoryId).toList();
+    }
+    if (categoryName != null && categoryName.trim().isNotEmpty) {
+      final cName = categoryName.trim().toLowerCase();
+      list = list.where((a) => a.category.name.toLowerCase() == cName).toList();
     }
     if (search != null && search.trim().isNotEmpty) {
       final q = search.trim().toLowerCase();
@@ -332,12 +510,23 @@ The Ministry of Agriculture and Livestock Development has approved the allocatio
   }
 
   @override
+  Future<NewsArticleModel> getAdminNewsDetail(int id, {String? token}) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    return _mockArticles.firstWhere(
+      (a) => a.id == id,
+      orElse: () => _mockArticles.first,
+    );
+  }
+
+  @override
   Future<NewsArticleModel> createAdminNews({
     required String title,
     required String summary,
     required String content,
     required int categoryId,
     String? imageUrl,
+    List<int>? imageBytes,
+    String? imageName,
     String status = 'DRAFT',
     String? token,
   }) async {
@@ -349,7 +538,7 @@ The Ministry of Agriculture and Livestock Development has approved the allocatio
       title: title,
       summary: summary,
       content: content,
-      imageUrl: imageUrl,
+      imageUrl: imageUrl ?? (imageName != null ? 'https://images.unsplash.com/photo-1595974482597-4b8da8879bc5?auto=format&fit=crop&w=800&q=80' : null),
       category: cat,
       createdBy: 'Officer Admin',
       createdAt: DateTime.now(),
@@ -368,6 +557,8 @@ The Ministry of Agriculture and Livestock Development has approved the allocatio
     String? content,
     int? categoryId,
     String? imageUrl,
+    List<int>? imageBytes,
+    String? imageName,
     String? status,
     String? token,
   }) async {

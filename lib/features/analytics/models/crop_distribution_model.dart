@@ -1,3 +1,35 @@
+class CropLeaderboardItem {
+  final int rank;
+  final String cropName;
+  final int totalRecommendations;
+  final double avgConfidencePct;
+
+  CropLeaderboardItem({
+    required this.rank,
+    required this.cropName,
+    required this.totalRecommendations,
+    required this.avgConfidencePct,
+  });
+
+  factory CropLeaderboardItem.fromJson(Map<String, dynamic> json) {
+    return CropLeaderboardItem(
+      rank: (json['rank'] as num?)?.toInt() ?? 0,
+      cropName: json['crop_name'] ?? json['crop'] ?? '',
+      totalRecommendations: (json['total_recommendations'] as num?)?.toInt() ?? (json['count'] as num?)?.toInt() ?? 0,
+      avgConfidencePct: (json['avg_confidence_pct'] as num?)?.toDouble() ?? (json['confidence'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'rank': rank,
+      'crop_name': cropName,
+      'total_recommendations': totalRecommendations,
+      'avg_confidence_pct': avgConfidencePct,
+    };
+  }
+}
+
 class CropShare {
   final String crop;
   final int count;
@@ -11,9 +43,9 @@ class CropShare {
 
   factory CropShare.fromJson(Map<String, dynamic> json) {
     return CropShare(
-      crop: json['crop'] ?? '',
-      count: (json['count'] as num?)?.toInt() ?? 0,
-      percentage: (json['percentage'] as num?)?.toDouble() ?? 0.0,
+      crop: json['crop'] ?? json['crop_name'] ?? '',
+      count: (json['count'] as num?)?.toInt() ?? (json['total_recommendations'] as num?)?.toInt() ?? 0,
+      percentage: (json['percentage'] as num?)?.toDouble() ?? (json['avg_confidence_pct'] as num?)?.toDouble() ?? 0.0,
     );
   }
 
@@ -41,7 +73,7 @@ class SeasonalCropDistribution {
     final rawCrops = json['top_crops'] as List<dynamic>? ?? [];
     return SeasonalCropDistribution(
       season: json['season'] ?? '',
-      totalRecommendations: (json['total_recommendations'] as num?)?.toInt() ?? 0,
+      totalRecommendations: (json['total_recommendations'] as num?)?.toInt() ?? (json['count'] as num?)?.toInt() ?? 0,
       topCrops: rawCrops.map((item) => CropShare.fromJson(item as Map<String, dynamic>)).toList(),
     );
   }
@@ -52,5 +84,40 @@ class SeasonalCropDistribution {
       'total_recommendations': totalRecommendations,
       'top_crops': topCrops.map((c) => c.toJson()).toList(),
     };
+  }
+}
+
+class CropDistributionResponse {
+  final List<CropLeaderboardItem> topCropsLeaderboard;
+  final List<SeasonalCropDistribution> seasonalDistribution;
+
+  CropDistributionResponse({
+    required this.topCropsLeaderboard,
+    required this.seasonalDistribution,
+  });
+
+  factory CropDistributionResponse.fromJson(Map<String, dynamic> json) {
+    final dataObj = json['crop_distribution'] is Map<String, dynamic>
+        ? json['crop_distribution'] as Map<String, dynamic>
+        : json;
+
+    final rawLeaderboard = dataObj['top_crops_leaderboard'] as List<dynamic>? ?? [];
+    final rawSeasonal = dataObj['seasonal_distribution'] as List<dynamic>? ?? [];
+
+    return CropDistributionResponse(
+      topCropsLeaderboard: rawLeaderboard
+          .map((item) => CropLeaderboardItem.fromJson(item as Map<String, dynamic>))
+          .toList(),
+      seasonalDistribution: rawSeasonal.map((item) {
+        if (item is Map<String, dynamic>) {
+          return SeasonalCropDistribution(
+            season: item['season'] ?? '',
+            totalRecommendations: (item['count'] as num?)?.toInt() ?? 0,
+            topCrops: [],
+          );
+        }
+        return SeasonalCropDistribution(season: '', totalRecommendations: 0, topCrops: []);
+      }).toList(),
+    );
   }
 }

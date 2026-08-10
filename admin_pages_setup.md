@@ -11,6 +11,7 @@ To ensure a clean, intuitive, and professional interface, the Admin Dashboard is
 This is the main landing screen when an Agricultural Extension Officer or Administrator logs in.
 
 ### Page Wireframe
+
 ```text
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │  AgriAssist Admin Dashboard                        [ Date Filter ]  [ Officer: Admin ] │
@@ -27,11 +28,11 @@ This is the main landing screen when an Agricultural Extension Officer or Admini
 
 ### Component & Endpoint Mapping
 
-| Component Section | Recommended UI Widget | Associated API Endpoint | Key Data Rendered |
-|---|---|---|---|
-| **Top KPI Stat Cards** | Metric Cards / Badges | `GET /api/analytics/kpis/` | Total Farmers, Crop Queries, Fertilizer Queries, Acidic Soil Alert Count (Highlighted Red), Acidic Soil % |
-| **System Usage Trends** | Dual-Line Chart | `GET /api/analytics/usage-trends/` | Daily / Monthly query volume comparison over time |
-| **City Activity Leaderboard** | Ranked Table | `GET /api/analytics/kpis/` | Ranking of cities by farmer engagement and recommendation query volume |
+| Component Section                   | Recommended UI Widget | Associated API Endpoint              | Key Data Rendered                                                                                         |
+| ----------------------------------- | --------------------- | ------------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| **Top KPI Stat Cards**        | Metric Cards / Badges | `GET /api/analytics/kpis/`         | Total Farmers, Crop Queries, Fertilizer Queries, Acidic Soil Alert Count (Highlighted Red), Acidic Soil % |
+| **System Usage Trends**       | Dual-Line Chart       | `GET /api/analytics/usage-trends/` | Daily / Monthly query volume comparison over time                                                         |
+| **City Activity Leaderboard** | Ranked Table          | `GET /api/analytics/kpis/`         | Ranking of cities by farmer engagement and recommendation query volume                                    |
 
 ---
 
@@ -40,6 +41,7 @@ This is the main landing screen when an Agricultural Extension Officer or Admini
 This page provides soil scientists and policy officers with chemical demand and soil degradation metrics across Nepal.
 
 ### Page Wireframe
+
 ```text
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │  Regional Soil Health & Fertilizer Demand                                              │
@@ -62,12 +64,12 @@ This page provides soil scientists and policy officers with chemical demand and 
 
 ### Component & Endpoint Mapping
 
-| Component Section | Recommended UI Widget | Associated API Endpoint | Key Data Rendered |
-|---|---|---|---|
-| **Soil pH Spectrum** | Donut Chart | `GET /api/analytics/soil-acidity-hotspots/` | Tiers: Extremely Acidic ($<5.0$), Moderately Acidic ($5.0-6.0$), Neutral ($6.0-7.5$), Alkaline ($>7.5$) |
-| **NPK Deficiency Badges** | Percentage Badges | `GET /api/analytics/kpis/` | Nitrogen ($N$), Phosphorus ($P$), Potassium ($K$) deficiency rates |
-| **Liming Risk Hotspots Table** | Color-Coded Table | `GET /api/analytics/soil-acidity-hotspots/` | Cities sorted by acidity risk level (`CRITICAL` Red, `HIGH` Orange, `LOW` Green) with recommended liming dosages |
-| **Regional Fertilizer Demand** | Grouped Bar Chart | `GET /api/analytics/fertilizer-demand/` | Chemical fertilizer demand counts (DAP, Urea, MOP, Lime, 20-20-0) per city |
+| Component Section                    | Recommended UI Widget | Associated API Endpoint                       | Key Data Rendered                                                                                                      |
+| ------------------------------------ | --------------------- | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| **Soil pH Spectrum**           | Donut Chart           | `GET /api/analytics/soil-acidity-hotspots/` | Tiers: Extremely Acidic ($<5.0$), Moderately Acidic ($5.0-6.0$), Neutral ($6.0-7.5$), Alkaline ($>7.5$)        |
+| **NPK Deficiency Badges**      | Percentage Badges     | `GET /api/analytics/kpis/`                  | Nitrogen ($N$), Phosphorus ($P$), Potassium ($K$) deficiency rates                                               |
+| **Liming Risk Hotspots Table** | Color-Coded Table     | `GET /api/analytics/soil-acidity-hotspots/` | Cities sorted by acidity risk level (`CRITICAL` Red, `HIGH` Orange, `LOW` Green) with recommended liming dosages |
+| **Regional Fertilizer Demand** | Grouped Bar Chart     | `GET /api/analytics/fertilizer-demand/`     | Chemical fertilizer demand counts (DAP, Urea, MOP, Lime, 20-20-0) per city                                             |
 
 ---
 
@@ -76,6 +78,7 @@ This page provides soil scientists and policy officers with chemical demand and 
 This page tracks crop shifting trends and live NASA satellite weather data across regions.
 
 ### Page Wireframe
+
 ```text
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │  Crop Cultivation & Satellite Climate Intelligence                                     │
@@ -93,18 +96,18 @@ This page tracks crop shifting trends and live NASA satellite weather data acros
 
 ### Component & Endpoint Mapping
 
-| Component Section | Recommended UI Widget | Associated API Endpoint | Key Data Rendered |
-|---|---|---|---|
-| **Top Recommended Crops** | Leaderboard Table | `GET /api/analytics/crop-distribution/` | Top 10 crops ranked by total query count and average model confidence % |
-| **Seasonal Crop Breakdown** | Pie / Donut Chart | `GET /api/analytics/crop-distribution/` | Crop recommendations grouped by season (Monsoon, Winter, Summer, Pre-Monsoon) |
-| **NASA Satellite Climate Cards** | Summary Cards | `GET /api/analytics/crop-distribution/` | Regional weather averages (Temperature, Humidity, Rainfall) fetched from NASA POWER |
+| Component Section                      | Recommended UI Widget | Associated API Endpoint                   | Key Data Rendered                                                                   |
+| -------------------------------------- | --------------------- | ----------------------------------------- | ----------------------------------------------------------------------------------- |
+| **Top Recommended Crops**        | Leaderboard Table     | `GET /api/analytics/crop-distribution/` | Top 10 crops ranked by total query count and average model confidence %             |
+| **Seasonal Crop Breakdown**      | Pie / Donut Chart     | `GET /api/analytics/crop-distribution/` | Crop recommendations grouped by season (Monsoon, Winter, Summer, Pre-Monsoon)       |
+| **NASA Satellite Climate Cards** | Summary Cards         | `GET /api/analytics/crop-distribution/` | Regional weather averages (Temperature, Humidity, Rainfall) fetched from NASA POWER |
 
 ---
 
 # Summary Table
 
-| Page Title | Route | Core Focus | Primary UI Components |
-|---|---|---|---|
-| **Page 1: System Overview** | `/admin/dashboard` | Platform Scale & Activity | Stat Cards, Dual-Line Usage Chart, City Activity Table |
-| **Page 2: Soil & Fertilizer** | `/admin/soil-health` | Chemical Demand & Acidic Soil | pH Donut Chart, NPK Badges, Liming Risk Table, Fertilizer Bar Chart |
-| **Page 3: Crop & Weather** | `/admin/crop-intelligence` | Crop Trends & Climate | Crop Leaderboard Table, Seasonal Pie Chart, Satellite Climate Cards |
+| Page Title                          | Route                        | Core Focus                    | Primary UI Components                                               |
+| ----------------------------------- | ---------------------------- | ----------------------------- | ------------------------------------------------------------------- |
+| **Page 1: System Overview**   | `/admin/dashboard`         | Platform Scale & Activity     | Stat Cards, Dual-Line Usage Chart, City Activity Table              |
+| **Page 2: Soil & Fertilizer** | `/admin/soil-health`       | Chemical Demand & Acidic Soil | pH Donut Chart, NPK Badges, Liming Risk Table, Fertilizer Bar Chart |
+| **Page 3: Crop & Weather**    | `/admin/crop-intelligence` | Crop Trends & Climate         | Crop Leaderboard Table, Seasonal Pie Chart, Satellite Climate Cards |

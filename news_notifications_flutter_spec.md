@@ -72,92 +72,183 @@ The backend provides ultra-lightweight REST endpoints optimized for periodic pol
 
 ## 4. Detailed Endpoint Specifications & Payloads
 
-### 4.1 News Categories (`GET /api/news/categories/`)
-Returns all active news categories for topic subscription screens.
+### 4.1 News Categories (`GET /api/news/categories/` - `news_categories_list`)
+Returns all active news categories for topic subscription.
 
 * **Headers:** `Authorization: Bearer <access_token>`
-* **Response (`200 OK`):**
+* **Parameters:** None
+* **Response (`200 OK`):** Returns JSON Array of `NewsCategory` objects (`[NewsCategory{...}]`).
 ```json
-{
-  "status": "success",
-  "count": 5,
-  "categories": [
-    { "id": 1, "name": "Weather Alerts", "description": "Severe weather notices and rainfall forecasts" },
-    { "id": 2, "name": "Crop Management", "description": "Seasonal planting and harvesting guidelines" },
-    { "id": 3, "name": "Fertilizer", "description": "Fertilizer availability and dosage advisories" },
-    { "id": 4, "name": "Pest & Disease", "description": "Pest outbreak alerts and treatment steps" },
-    { "id": 5, "name": "Government Schemes", "description": "Nepal government subsidies and farming schemes" }
-  ]
-}
+[
+  {
+    "id": 1,
+    "name": "Weather Alerts",
+    "description": "Severe weather notices and rainfall forecasts",
+    "created_at": "2026-08-09T08:00:00+05:45",
+    "updated_at": "2026-08-09T08:00:00+05:45"
+  },
+  {
+    "id": 2,
+    "name": "Crop Management",
+    "description": "Seasonal planting and harvesting guidelines",
+    "created_at": "2026-08-09T08:00:00+05:45",
+    "updated_at": "2026-08-09T08:00:00+05:45"
+  },
+  {
+    "id": 3,
+    "name": "Fertilizer",
+    "description": "Fertilizer availability and dosage advisories",
+    "created_at": "2026-08-09T08:00:00+05:45",
+    "updated_at": "2026-08-09T08:00:00+05:45"
+  },
+  {
+    "id": 4,
+    "name": "Pest & Disease",
+    "description": "Pest outbreak alerts and treatment steps",
+    "created_at": "2026-08-09T08:00:00+05:45",
+    "updated_at": "2026-08-09T08:00:00+05:45"
+  },
+  {
+    "id": 5,
+    "name": "Government Schemes",
+    "description": "Nepal government subsidies and farming schemes",
+    "created_at": "2026-08-09T08:00:00+05:45",
+    "updated_at": "2026-08-09T08:00:00+05:45"
+  }
+]
 ```
 
 ---
 
-### 4.2 Farmer News Feed (`GET /api/news/`)
-Lists **PUBLISHED** news articles for the mobile feed. (Drafts are excluded automatically).
+### 4.2 Farmer News Feed (`GET /api/news/` - `news_list`)
+Lists **PUBLISHED** news articles for the mobile feed. Drafts are excluded automatically.
 
-* **Query Parameters:** `?category=4` (optional category filter) | `?search=maize` (optional title search)
-* **Response (`200 OK`):**
+* **Auth Required:** Yes
+* **Query Parameters:**
+  * `?search=maize` (optional search term across title/summary/content)
+  * `?category=4` (optional category ID filter)
+  * `?category__name=Pest & Disease` (optional category name filter)
+* **Response (`200 OK`):** Returns JSON Array of `News` objects (`[News{...}]`).
 ```json
-{
-  "status": "success",
-  "count": 2,
-  "results": [
-    {
-      "id": 12,
-      "title": "Armyworm Outbreak Alert in Chitwan Maize Fields",
-      "summary": "Fall armyworm detected in Chitwan region. Immediate pesticide application recommended.",
-      "image_url": "http://127.0.0.1:8000/media/news/armyworm.jpg",
-      "category": { "id": 4, "name": "Pest & Disease" },
-      "published_at": "2026-08-09T10:30:00+05:45",
-      "created_at": "2026-08-09T09:00:00+05:45"
-    }
-  ]
-}
-```
-
----
-
-### 4.3 Farmer News Detail View (`GET /api/news/<id>/`)
-Returns the complete article with full content body.
-
-* **Response (`200 OK`):**
-```json
-{
-  "status": "success",
-  "article": {
+[
+  {
     "id": 12,
     "title": "Armyworm Outbreak Alert in Chitwan Maize Fields",
-    "summary": "Fall armyworm detected in Chitwan region.",
-    "content": "Full markdown or rich text article explaining infestation symptoms, recommended chemical treatments (Emamectin benzoate 5% SG at 0.4g/L water), and preventive steps...",
-    "image_url": "http://127.0.0.1:8000/media/news/armyworm.jpg",
-    "category": { "id": 4, "name": "Pest & Disease" },
-    "created_by": "Officer Admin",
-    "published_at": "2026-08-09T10:30:00+05:45"
+    "summary": "Fall armyworm detected in Chitwan region. Immediate pesticide application recommended.",
+    "content": "Full advisory content details...",
+    "image": "http://127.0.0.1:8000/media/news/armyworm.jpg",
+    "category": {
+      "id": 4,
+      "name": "Pest & Disease",
+      "description": "Pest outbreak alerts and treatment steps",
+      "created_at": "2026-08-09T09:00:00+05:45",
+      "updated_at": "2026-08-09T09:00:00+05:45"
+    },
+    "category_id": 4,
+    "status": "PUBLISHED",
+    "created_by_username": "officer_admin",
+    "published_at": "2026-08-09T10:30:00+05:45",
+    "created_at": "2026-08-09T09:00:00+05:45",
+    "updated_at": "2026-08-09T10:30:00+05:45"
   }
+]
+```
+
+---
+
+### 4.3 Farmer News Detail View (`GET /api/news/<id>/` - `news_read`)
+Returns complete details of a published news article.
+
+* **Auth Required:** Yes
+* **Path Parameters:** `id` (integer/string, required) - Unique ID of the published article.
+* **Response (`200 OK`):**
+```json
+{
+  "id": 12,
+  "title": "Armyworm Outbreak Alert in Chitwan Maize Fields",
+  "summary": "Fall armyworm detected in Chitwan region.",
+  "content": "Full markdown or rich text article explaining infestation symptoms, recommended chemical treatments (Emamectin benzoate 5% SG at 0.4g/L water), and preventive steps...",
+  "image": "http://127.0.0.1:8000/media/news/armyworm.jpg",
+  "category": {
+    "id": 4,
+    "name": "Pest & Disease",
+    "description": "Pest outbreak alerts and treatment steps",
+    "created_at": "2026-08-09T09:00:00+05:45",
+    "updated_at": "2026-08-09T09:00:00+05:45"
+  },
+  "category_id": 4,
+  "status": "PUBLISHED",
+  "created_by_username": "officer_admin",
+  "published_at": "2026-08-09T10:30:00+05:45",
+  "created_at": "2026-08-09T09:00:00+05:45",
+  "updated_at": "2026-08-09T10:30:00+05:45"
 }
 ```
+* **Error Response (`404 Not Found`):** Returned if the article ID does not exist or is in `DRAFT` state for non-staff users.
 
 ---
 
 ### 4.4 Topic Subscriptions (`POST` / `GET` / `DELETE /api/subscriptions/`)
 
-* **Subscribe to Category (`POST /api/subscriptions/`):**
-  * **Request Body:** `{ "category_id": 4 }`
-  * **Response (`201 Created`):**
+* **Subscribe to Category (`POST /api/subscriptions/` - `subscriptions_create`):**
+  * **Auth Required:** Yes
+  * **Description:** Subscribe authenticated farmer to a news category by `category_id`.
+  * **Request Body (`application/json`):**
+    ```json
+    {
+      "category_id": 4
+    }
+    ```
+  * **Response (`201 Created`):** Returns created `Subscription` object.
+    ```json
+    {
+      "id": 8,
+      "category": {
+        "id": 4,
+        "name": "Pest & Disease",
+        "description": "Pest outbreak alerts and treatment steps",
+        "created_at": "2026-08-09T08:00:00+05:45",
+        "updated_at": "2026-08-09T08:00:00+05:45"
+      },
+      "category_id": 4,
+      "created_at": "2026-08-09T11:00:00+05:45"
+    }
+    ```
+  * **Error Response (`400 Bad Request`):** Duplicate Subscription Error (e.g. `{"detail": "You are already subscribed to this category."}`).
+
+* **List Active Farmer Subscriptions (`GET /api/subscriptions/` - `subscriptions_list`):**
+  * **Auth Required:** Yes
+  * **Parameters:** None
+  * **Response (`200 OK`):** Returns JSON Array of `Subscription` objects (`[Subscription{...}]`).
+    ```json
+    [
+      {
+        "id": 8,
+        "category": {
+          "id": 4,
+          "name": "Pest & Disease",
+          "description": "Pest outbreak alerts and treatment steps",
+          "created_at": "2026-08-09T08:00:00+05:45",
+          "updated_at": "2026-08-09T08:00:00+05:45"
+        },
+        "category_id": 4,
+        "created_at": "2026-08-09T11:00:00+05:45"
+      }
+    ]
+    ```
+
+* **Unsubscribe (`DELETE /api/subscriptions/<id>/` - `subscriptions_delete`):**
+  * **Auth Required:** Yes
+  * **Description:** Unsubscribe authenticated farmer from a news category by subscription ID.
+  * **Path Parameters:** `id` (integer/string, required) - Unique ID of the active subscription.
+  * **Response (`200 OK` or `204 No Content`):** Successfully unsubscribed.
     ```json
     {
       "status": "success",
-      "subscription": { "id": 8, "category": { "id": 4, "name": "Pest & Disease" }, "created_at": "2026-08-09T11:00:00+05:45" }
+      "message": "Successfully unsubscribed."
     }
     ```
-  * **Duplicate Handling:** If already subscribed, returns `400 Bad Request` (`"You are already subscribed to this category."`).
-
-* **List Active Farmer Subscriptions (`GET /api/subscriptions/`):**
-  * **Response (`200 OK`):** Returns array of categories the current logged-in farmer is subscribed to.
-
-* **Unsubscribe (`DELETE /api/subscriptions/<id>/`):**
-  * **Response (`200 OK`):** `{"status": "success", "message": "Successfully unsubscribed."}`
+  * **Error Response (`404 Not Found`):** Returned if the subscription `id` does not exist or does not belong to the user.
   * *(Note: Unsubscribing stops future notifications; past notifications remain intact).*
 
 ---
@@ -198,6 +289,192 @@ Returns the complete article with full content body.
 
 * **4. Mark All Notifications as Read (`PATCH /api/notifications/read-all/`):**
   * **Response (`200 OK`):** `{"status": "success", "message": "All notifications marked as read."}`
+
+---
+
+### 4.6 Admin News Management Endpoints (`/api/admin/news/`)
+
+> [!IMPORTANT]
+> **Admin Authentication & Token Requirement**:
+> Access to all `/api/admin/news/*` endpoints requires Admin / Staff authentication.
+> Administrators must log in via `AdminLoginScreen` (`POST /api/token/`) to receive an admin JWT access token.
+> Every request to `/api/admin/*` MUST include the header:
+> `Authorization: Bearer <admin_token>`
+
+* **Create News Article (`POST /api/admin/news/` - `admin_news_create`):**
+  * **Auth Required:** Yes (`Authorization: Bearer <admin_token>`)
+  * **Description:** Create a news article as `DRAFT` or `PUBLISHED`.
+  * **Request Body (`application/json`):**
+    ```json
+    {
+      "title": "Fall Armyworm Outbreak Warning",
+      "summary": "High risk of Armyworm invasion in eastern maize fields",
+      "content": "Detailed pesticide recommendations and alert guidelines...",
+      "category_id": 4,
+      "status": "DRAFT"
+    }
+    ```
+  * **Request Schema Parameters:**
+    * `title` (string, required, length: 1–255): Title of article.
+    * `summary` (string, required, min length: 1): Short summary preview.
+    * `content` (string, required, min length: 1): Full article markdown/body.
+    * `category_id` (integer, required): ID of news category.
+    * `status` (string, optional, enum: `["DRAFT", "PUBLISHED"]`): Draft state or published.
+  * **Response (`201 Created`):**
+    ```json
+    {
+      "id": 15,
+      "title": "Fall Armyworm Outbreak Warning",
+      "summary": "High risk of Armyworm invasion in eastern maize fields",
+      "content": "Detailed pesticide recommendations and alert guidelines...",
+      "image": null,
+      "category": {
+        "id": 4,
+        "name": "Pest & Disease",
+        "description": "Pest outbreak alerts and treatment steps",
+        "created_at": "2026-08-09T10:00:00+05:45",
+        "updated_at": "2026-08-09T10:00:00+05:45"
+      },
+      "category_id": 4,
+      "status": "DRAFT",
+      "created_by_username": "officer_admin",
+      "published_at": null,
+      "created_at": "2026-08-09T18:56:15+05:45",
+      "updated_at": "2026-08-09T18:56:15+05:45"
+    }
+    ```
+  * **Error Response (`403 Forbidden`):** Returned if the authenticated user is not staff / admin.
+
+* **List Admin News Articles (`GET /api/admin/news/` - `admin_news_list`):**
+  * **Auth Required:** Yes (Staff / Extension Officer)
+  * **Description:** Retrieve all news articles across the system, including both `DRAFT` and `PUBLISHED` states.
+  * **Parameters:** None.
+  * **Response (`200 OK`):** Returns a JSON Array of `News` objects.
+    ```json
+    [
+      {
+        "id": 15,
+        "title": "Fall Armyworm Outbreak Warning",
+        "summary": "High risk of Armyworm invasion in eastern maize fields",
+        "content": "Detailed pesticide recommendations...",
+        "image": null,
+        "category": {
+          "id": 4,
+          "name": "Pest & Disease",
+          "description": "Pest outbreak alerts and treatment steps",
+          "created_at": "2026-08-09T10:00:00+05:45",
+          "updated_at": "2026-08-09T10:00:00+05:45"
+        },
+        "category_id": 4,
+        "status": "DRAFT",
+        "created_by_username": "officer_admin",
+        "published_at": null,
+        "created_at": "2026-08-09T18:56:15+05:45",
+        "updated_at": "2026-08-09T18:56:15+05:45"
+      },
+      {
+        "id": 12,
+        "title": "Armyworm Outbreak Alert in Chitwan Maize Fields",
+        "summary": "Fall armyworm detected in Chitwan region.",
+        "content": "Full advisory body text...",
+        "image": "http://127.0.0.1:8000/media/news/armyworm.jpg",
+        "category": {
+          "id": 4,
+          "name": "Pest & Disease",
+          "description": "Pest outbreak alerts and treatment steps",
+          "created_at": "2026-08-09T09:00:00+05:45",
+          "updated_at": "2026-08-09T09:00:00+05:45"
+        },
+        "category_id": 4,
+        "status": "PUBLISHED",
+        "created_by_username": "officer_admin",
+        "published_at": "2026-08-09T10:30:00+05:45",
+        "created_at": "2026-08-09T09:00:00+05:45",
+        "updated_at": "2026-08-09T10:30:00+05:45"
+      }
+    ]
+    ```
+  * **Error Response (`403 Forbidden`):** Returned if the authenticated user is not staff / admin.
+
+* **Get Specific Admin News Details (`GET /api/admin/news/<id>/` - `admin_news_read`):**
+  * **Auth Required:** Yes (Staff / Extension Officer)
+  * **Description:** Retrieve detailed information of a specific news article (in either `DRAFT` or `PUBLISHED` state) by its unique integer `id`.
+  * **Path Parameters:** `id` (integer, required) - Unique ID of the article.
+  * **Response (`200 OK`):** Returns the single `News` object.
+    ```json
+    {
+      "id": 15,
+      "title": "Fall Armyworm Outbreak Warning",
+      "summary": "High risk of Armyworm invasion in eastern maize fields",
+      "content": "Detailed pesticide recommendations...",
+      "image": null,
+      "category": {
+        "id": 4,
+        "name": "Pest & Disease",
+        "description": "Pest outbreak alerts and treatment steps",
+        "created_at": "2026-08-09T10:00:00+05:45",
+        "updated_at": "2026-08-09T10:00:00+05:45"
+      },
+      "category_id": 4,
+      "status": "DRAFT",
+      "created_by_username": "officer_admin",
+      "published_at": null,
+      "created_at": "2026-08-09T18:56:15+05:45",
+      "updated_at": "2026-08-09T18:56:15+05:45"
+    }
+    ```
+  * **Error Response (`403 Forbidden`):** Returned if the authenticated user is not staff / admin.
+
+* **Update News Article (`PUT /api/admin/news/<id>/` - `admin_news_update` | `PATCH /api/admin/news/<id>/` - `admin_news_partial_update`):**
+  * **Auth Required:** Yes (Staff / Extension Officer)
+  * **Description:** Update fields of an existing news article by its unique integer `id`. Supports full overwrite (`PUT`) or partial update of select fields (`PATCH`).
+  * **Path Parameters:** `id` (integer, required) - Unique article ID.
+  * **Partial Request Body Example (`PATCH`):**
+    ```json
+    {
+      "status": "PUBLISHED"
+    }
+    ```
+  * **Full Request Body Example (`PUT`):**
+    ```json
+    {
+      "title": "Updated Armyworm Outbreak Notice",
+      "summary": "Revised treatment dosages and emergency hotline details",
+      "content": "Full revised article body...",
+      "category_id": 4,
+      "status": "PUBLISHED"
+    }
+    ```
+  * **Request Schema Parameters:**
+    * `title` (string, optional for PATCH, max 255 chars): Updated title.
+    * `summary` (string, optional for PATCH): Updated summary preview.
+    * `content` (string, optional for PATCH): Updated full markdown body.
+    * `category_id` (integer, optional for PATCH): Updated category ID.
+    * `status` (string, optional, enum: `["DRAFT", "PUBLISHED"]`): Updated status.
+  * **Response (`200 OK`):** Returns the updated `News` object.
+    ```json
+    {
+      "id": 15,
+      "title": "Updated Armyworm Outbreak Notice",
+      "summary": "Revised treatment dosages and emergency hotline details",
+      "content": "Full revised article body...",
+      "image": null,
+      "category": {
+        "id": 4,
+        "name": "Pest & Disease",
+        "description": "Pest outbreak alerts and treatment steps",
+        "created_at": "2026-08-09T10:00:00+05:45",
+        "updated_at": "2026-08-09T10:00:00+05:45"
+      },
+      "category_id": 4,
+      "status": "PUBLISHED",
+      "created_by_username": "officer_admin",
+      "published_at": "2026-08-09T20:11:00+05:45",
+      "created_at": "2026-08-09T18:56:15+05:45",
+      "updated_at": "2026-08-09T20:11:00+05:45"
+    }
+    ```
+  * **Error Response (`403 Forbidden`):** Returned if the authenticated user is not staff / admin.
 
 ---
 

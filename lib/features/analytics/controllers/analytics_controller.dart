@@ -48,6 +48,9 @@ class AnalyticsController extends ChangeNotifier {
   List<SeasonalCropDistribution> _cropDistributionList = [];
   List<SeasonalCropDistribution> get cropDistributionList => _cropDistributionList;
 
+  List<CropLeaderboardItem> _topCropsLeaderboard = [];
+  List<CropLeaderboardItem> get topCropsLeaderboard => _topCropsLeaderboard;
+
   List<DailyUsageTrend> _usageTrendsList = [];
   List<DailyUsageTrend> get usageTrendsList => _usageTrendsList;
 
@@ -101,6 +104,15 @@ class AnalyticsController extends ChangeNotifier {
       _usageTrendsList = trends;
       _climateDataList = climate;
 
+      if (_activeRepo is HttpAnalyticsRepo) {
+        try {
+          final fullResp = await (_activeRepo as HttpAnalyticsRepo).fetchFullCropDistributionResponse(token);
+          if (fullResp != null && fullResp.topCropsLeaderboard.isNotEmpty) {
+            _topCropsLeaderboard = fullResp.topCropsLeaderboard;
+          }
+        } catch (_) {}
+      }
+
       if (_cropDistributionList.isNotEmpty &&
           !_cropDistributionList.any((e) => e.season.toLowerCase() == _selectedSeason.toLowerCase())) {
         _selectedSeason = _cropDistributionList.first.season;
@@ -108,35 +120,8 @@ class AnalyticsController extends ChangeNotifier {
     } on AnalyticsAuthException catch (e) {
       _errorCode = e.statusCode;
       _errorMessage = e.message;
-      // Auto fallback to mock data for smooth demo if server endpoint isn't live yet
-      if (!_useMockData) {
-        _useMockData = true;
-        try {
-          _kpiData = await _mockRepo.fetchKpis(token);
-          _fertilizerDemandList = await _mockRepo.fetchFertilizerDemand(token);
-          _acidityHotspotsList = await _mockRepo.fetchSoilAcidityHotspots(token);
-          _cropDistributionList = await _mockRepo.fetchCropDistribution(token);
-          _usageTrendsList = await _mockRepo.fetchUsageTrends(token);
-          _climateDataList = await _mockRepo.fetchClimateData(token);
-          _errorMessage = null;
-          _errorCode = null;
-        } catch (_) {}
-      }
     } catch (e) {
       _errorMessage = e.toString().replaceAll('Exception: ', '');
-      // Fallback to mock data for demonstration purposes
-      if (!_useMockData) {
-        _useMockData = true;
-        try {
-          _kpiData = await _mockRepo.fetchKpis(token);
-          _fertilizerDemandList = await _mockRepo.fetchFertilizerDemand(token);
-          _acidityHotspotsList = await _mockRepo.fetchSoilAcidityHotspots(token);
-          _cropDistributionList = await _mockRepo.fetchCropDistribution(token);
-          _usageTrendsList = await _mockRepo.fetchUsageTrends(token);
-          _climateDataList = await _mockRepo.fetchClimateData(token);
-          _errorMessage = null;
-        } catch (_) {}
-      }
     } finally {
       _isLoading = false;
       notifyListeners();
