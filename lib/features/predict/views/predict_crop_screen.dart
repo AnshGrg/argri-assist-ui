@@ -224,6 +224,14 @@ class _PredictCropScreenState extends State<PredictCropScreen> {
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<LocationOption>(
                     value: widget.controller.selectedLocation,
+                    hint: const Text(
+                      'Select Location',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppColors.textLight,
+                        fontWeight: FontWeight.normal,
+                      ),
+                    ),
                     icon: const Icon(
                       Icons.keyboard_arrow_down_rounded,
                       color: AppColors.textLight,
@@ -415,6 +423,10 @@ class _PredictCropScreenState extends State<PredictCropScreen> {
   }
 
   String? _validateInputs() {
+    if (widget.controller.selectedLocation == null) {
+      return 'Please select a location.';
+    }
+
     final n = widget.controller.nitrogen;
     final p = widget.controller.phosphorus;
     final k = widget.controller.potassium;

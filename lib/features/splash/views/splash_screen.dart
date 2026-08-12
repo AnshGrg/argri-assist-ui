@@ -32,14 +32,12 @@ class _SplashScreenState extends State<SplashScreen> {
     if (!mounted) return;
 
     if (tokens != null && tokens.access.isNotEmpty) {
-      // User is logged in → go to HomeScreen
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (context) => HomeScreen(controller: widget.homeController),
         ),
       );
     } else {
-      // Not logged in → go to LoginScreen
       final authController = AuthController(authRepo: HttpAuthRepo());
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(

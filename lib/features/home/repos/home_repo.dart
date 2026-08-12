@@ -50,7 +50,7 @@ class OpenMeteoHomeRepo implements HomeRepo {
 
   @override
   Future<WeatherModel> fetchWeatherData({double? latitude, double? longitude, String? locationName}) async {
-    final lat = latitude ?? 27.7172; // Default to Kathmandu / general Nepal coords if unavailable
+    final lat = latitude ?? 27.7172; // Kathmandu lat long
     final lon = longitude ?? 85.3240;
 
     final url = Uri.parse(
@@ -82,7 +82,6 @@ class OpenMeteoHomeRepo implements HomeRepo {
       }
     } catch (_) {}
 
-    // Fallback if API fails
     return WeatherModel(
       temperature: 23.0,
       condition: 'Partly Cloudy',

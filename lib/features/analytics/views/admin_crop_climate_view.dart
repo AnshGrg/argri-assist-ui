@@ -247,7 +247,6 @@ class AdminCropClimateView extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
-          // Season selector tabs (web style — plain underline)
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(

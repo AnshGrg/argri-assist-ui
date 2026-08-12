@@ -625,7 +625,7 @@ class PredictCropResultScreen extends StatelessWidget {
                 p: controller.phosphorus,
                 k: controller.potassium,
                 phVal: controller.ph,
-                location: controller.selectedLocation,
+                location: controller.selectedLocation!,
                 season: controller.selectedSeason,
               );
               Navigator.of(context).push(

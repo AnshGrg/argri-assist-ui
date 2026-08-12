@@ -64,8 +64,8 @@ class PredictController extends ChangeNotifier {
   double _ph = 6.5;
   double get ph => _ph;
 
-  LocationOption _selectedLocation = locationOptions[0];
-  LocationOption get selectedLocation => _selectedLocation;
+  LocationOption? _selectedLocation;
+  LocationOption? get selectedLocation => _selectedLocation;
 
   String _selectedSeason = 'Monsoon';
   String get selectedSeason => _selectedSeason;
@@ -96,7 +96,7 @@ class PredictController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setLocation(LocationOption loc) {
+  void setLocation(LocationOption? loc) {
     _selectedLocation = loc;
     notifyListeners();
   }
@@ -109,6 +109,12 @@ class PredictController extends ChangeNotifier {
   }
 
   Future<void> predictCrop() async {
+    if (_selectedLocation == null) {
+      _errorMessage = 'Please select a location.';
+      notifyListeners();
+      return;
+    }
+
     _isLoading = true;
     _errorMessage = null;
     _predictionResult = null;
@@ -120,8 +126,8 @@ class PredictController extends ChangeNotifier {
         phosphorus: _phosphorus,
         potassium: _potassium,
         ph: _ph,
-        latitude: _selectedLocation.latitude,
-        longitude: _selectedLocation.longitude,
+        latitude: _selectedLocation!.latitude,
+        longitude: _selectedLocation!.longitude,
         season: _selectedSeason,
       );
       var effectiveToken = userToken;
