@@ -252,8 +252,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  // ─── Header ───────────────────────────────────────────────────────────────
-
   Widget _buildHeader(BuildContext context) {
     final rawUsername = _authController.tokens?.username ?? 'Farmer';
     final formattedUsername = StringUtils.formatUsername(rawUsername);
@@ -292,7 +290,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ),
         ),
         const SizedBox(width: 12),
-        // Notification bell icon with unread badge
         AnimatedBuilder(
           animation: _notificationController,
           builder: (context, _) {
