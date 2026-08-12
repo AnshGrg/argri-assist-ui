@@ -94,24 +94,22 @@ class AnalyticsController extends ChangeNotifier {
       final fertilizers = await _activeRepo.fetchFertilizerDemand(token);
       final hotspots = await _activeRepo.fetchSoilAcidityHotspots(token);
       final cropDist = await _activeRepo.fetchCropDistribution(token);
+      final fullCropResp = await _activeRepo.fetchFullCropDistributionResponse(token);
+      final leaderboard = await _activeRepo.fetchCropLeaderboard(token);
       final trends = await _activeRepo.fetchUsageTrends(token);
       final climate = await _activeRepo.fetchClimateData(token);
 
       _kpiData = kpis;
       _fertilizerDemandList = fertilizers;
       _acidityHotspotsList = hotspots;
-      _cropDistributionList = cropDist;
+      _cropDistributionList = (fullCropResp != null && fullCropResp.seasonalDistribution.isNotEmpty)
+          ? fullCropResp.seasonalDistribution
+          : cropDist;
+      _topCropsLeaderboard = (fullCropResp != null && fullCropResp.topCropsLeaderboard.isNotEmpty)
+          ? fullCropResp.topCropsLeaderboard
+          : leaderboard;
       _usageTrendsList = trends;
       _climateDataList = climate;
-
-      if (_activeRepo is HttpAnalyticsRepo) {
-        try {
-          final fullResp = await (_activeRepo as HttpAnalyticsRepo).fetchFullCropDistributionResponse(token);
-          if (fullResp != null && fullResp.topCropsLeaderboard.isNotEmpty) {
-            _topCropsLeaderboard = fullResp.topCropsLeaderboard;
-          }
-        } catch (_) {}
-      }
 
       if (_cropDistributionList.isNotEmpty &&
           !_cropDistributionList.any((e) => e.season.toLowerCase() == _selectedSeason.toLowerCase())) {

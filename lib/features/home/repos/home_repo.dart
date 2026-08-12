@@ -54,7 +54,7 @@ class OpenMeteoHomeRepo implements HomeRepo {
     final lon = longitude ?? 85.3240;
 
     final url = Uri.parse(
-      'https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current=temperature_2m,relative_humidity_2m,weather_code',
+      'https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current=temperature_2m,relative_humidity_2m,weather_code,is_day',
     );
 
     try {
@@ -67,6 +67,7 @@ class OpenMeteoHomeRepo implements HomeRepo {
           final temp = (current['temperature_2m'] as num).toDouble();
           final humidity = (current['relative_humidity_2m'] as num).toDouble();
           final weatherCode = (current['weather_code'] as num).toInt();
+          final isDayVal = (current['is_day'] as num?)?.toInt() ?? 1;
           final condition = _wmoCodeToCondition(weatherCode);
 
           return WeatherModel(
@@ -74,6 +75,8 @@ class OpenMeteoHomeRepo implements HomeRepo {
             condition: condition,
             location: (locationName != null && locationName.isNotEmpty) ? locationName : 'Kathmandu, Nepal',
             humidity: humidity,
+            weatherCode: weatherCode,
+            isDay: isDayVal == 1,
           );
         }
       }
@@ -85,21 +88,14 @@ class OpenMeteoHomeRepo implements HomeRepo {
       condition: 'Partly Cloudy',
       location: (locationName != null && locationName.isNotEmpty) ? locationName : 'Kathmandu, Nepal',
       humidity: 65.0,
+      weatherCode: 2,
+      isDay: true,
     );
   }
 
   @override
   Future<List<PredictionHistoryModel>> fetchPredictionHistory() async {
-    await Future.delayed(const Duration(milliseconds: 300));
-    return MockDatabase.historyList.take(3).map((item) {
-      return PredictionHistoryModel(
-        id: item.id,
-        cropName: item.cropName,
-        date: item.date.split(' • ').first,
-        recommendation: item.recommendedFertilizer ?? 'Pending',
-        imageUrl: 'assets/images/${item.cropName.toLowerCase()}.png',
-      );
-    }).toList();
+    return [];
   }
 }
 

@@ -3,7 +3,6 @@ class ApiEndpoints {
 
   static const String baseUrl = 'https://api.agriassist.example.com/v1';
 
-  // Endpoint routes placeholders
   static const String getWeather = '$baseUrl/weather';
   static const String getPredictionHistory = '$baseUrl/predictions/history';
   static const String predictCrop = 'https://unknotted-unknown-heat.ngrok-free.dev/api/recommendation/crop/';
@@ -20,14 +19,12 @@ class ApiEndpoints {
   static const String register = 'https://unknotted-unknown-heat.ngrok-free.dev/api/accounts/register/';
   static const String refreshToken = 'https://unknotted-unknown-heat.ngrok-free.dev/api/accounts/token/refresh/';
 
-  // Analytics Endpoints
   static const String analyticsKpis = 'https://unknotted-unknown-heat.ngrok-free.dev/api/analytics/kpis/';
   static const String analyticsFertilizerDemand = 'https://unknotted-unknown-heat.ngrok-free.dev/api/analytics/fertilizer-demand/';
   static const String analyticsSoilAcidity = 'https://unknotted-unknown-heat.ngrok-free.dev/api/analytics/soil-acidity-hotspots/';
   static const String analyticsCropDistribution = 'https://unknotted-unknown-heat.ngrok-free.dev/api/analytics/crop-distribution/';
   static const String analyticsUsageTrends = 'https://unknotted-unknown-heat.ngrok-free.dev/api/analytics/usage-trends/';
 
-  // News, Subscriptions & Notifications Endpoints
   static const String newsCategories = 'https://unknotted-unknown-heat.ngrok-free.dev/api/news/categories/';
   static const String farmerNewsFeed = 'https://unknotted-unknown-heat.ngrok-free.dev/api/news/';
   static String farmerNewsDetail(int id) => 'https://unknotted-unknown-heat.ngrok-free.dev/api/news/$id/';

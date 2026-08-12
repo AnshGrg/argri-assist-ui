@@ -4,12 +4,11 @@ import 'core/theme/app_theme.dart';
 import 'features/auth/views/admin_login_screen.dart';
 import 'features/home/controllers/home_controller.dart';
 import 'features/home/repos/home_repo.dart';
-import 'features/home/views/home_screen.dart';
+import 'features/splash/views/splash_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Set up repo and controller instances
   final homeRepo = OpenMeteoHomeRepo();
   final homeController = HomeController(homeRepo: homeRepo);
 
@@ -29,7 +28,7 @@ class MyApp extends StatelessWidget {
       theme: AppTheme.lightTheme,
       home: kIsWeb
           ? const AdminLoginScreen()
-          : HomeScreen(controller: homeController),
+          : SplashScreen(homeController: homeController),
     );
   }
 }

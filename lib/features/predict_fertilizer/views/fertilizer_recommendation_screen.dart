@@ -1,8 +1,6 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_sizes.dart';
-import '../../../core/widgets/glass_card.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../controllers/fertilizer_controller.dart';
 import '../models/fertilizer_result_model.dart';
@@ -20,294 +18,335 @@ class FertilizerRecommendationScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          // Background Image
-          Positioned.fill(
-            child: Image.asset(
-              'assets/images/background.jpg',
-              fit: BoxFit.cover,
-            ),
-          ),
-          // Blur Filter & Translucent Overlay
-          Positioned.fill(
-            child: ClipRect(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 40.0, sigmaY: 40.0),
-                child: Container(
-                  color: AppColors.backgroundGreen.withValues(alpha: 0.65),
+      backgroundColor: const Color(0xFFEDF7EE),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildAppBar(context),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 8,
+                ),
+                child: Column(
+                  children: [
+                    _buildRecommendationCard(context),
+                    const SizedBox(height: 24),
+                    _buildNpkAnalysisCard(context),
+                    const SizedBox(height: 24),
+                    _buildExplanationCard(context),
+                    const SizedBox(height: 28),
+                  ],
                 ),
               ),
             ),
-          ),
-          // Screen UI
-          SafeArea(
-            child: Column(
-              children: [
-                _buildAppBar(context),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: AppSizes.xl),
-                    child: Column(
-                      children: [
-                        _buildRecommendationCard(context),
-                        AppSizes.spaceM,
-                        _buildNpkAnalysisCard(context),
-                        AppSizes.spaceM,
-                        _buildClimateDataCard(context),
-                        AppSizes.spaceM,
-                        _buildExplanationCard(context),
-                        AppSizes.spaceL,
-                      ],
-                    ),
-                  ),
-                ),
-                _buildFooterButton(context),
-              ],
-            ),
-          ),
-        ],
+            _buildFooterButton(context),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildAppBar(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSizes.l,
-        vertical: AppSizes.s,
-      ),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          IconButton(
-            icon: const Icon(
-              Icons.chevron_left_rounded,
-              size: AppSizes.iconExtraLarge,
+          GestureDetector(
+            onTap: () {
+              if (Navigator.canPop(context)) {
+                Navigator.of(context).pop();
+              }
+            },
+            child: Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.chevron_left_rounded,
+                color: AppColors.textDark,
+                size: 24,
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          const Text(
+            'Fertilizer Recommendation',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
               color: AppColors.textDark,
             ),
-            onPressed: () => Navigator.of(context).pop(),
           ),
-          Expanded(
-            child: Text(
-              'Fertilizer Recommendation',
-              textAlign: TextAlign.center,
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textDark,
-                  ),
-            ),
-          ),
-          const SizedBox(width: AppSizes.iconExtraLarge),
         ],
       ),
     );
   }
 
   Widget _buildRecommendationCard(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.symmetric(
-        vertical: AppSizes.xl,
-        horizontal: AppSizes.l,
-      ),
-      child: Column(
-        children: [
-          // Fertilizer Bag Circle
-          Container(
-            width: 90,
-            height: 90,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColors.lightGreen,
-              border: Border.all(
-                color: AppColors.primaryGreen,
-                width: 2,
+    final confPct = result.confidence.round();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Best Fertilizer Recommendation',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textDark,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: const Color(0xFFA8E0B5), width: 1.5),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
-            ),
-            child: const Center(
-              child: Icon(
-                Icons.shopping_bag_outlined,
-                size: 44,
-                color: AppColors.primaryGreen,
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+
+              Text(
+                result.recommendedFertilizer,
+                style: const TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textDark,
+                ),
               ),
-            ),
-          ),
-          AppSizes.spaceM,
-          Text(
-            'Recommended Fertilizer',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textMedium,
-                  fontWeight: FontWeight.w500,
-                ),
-          ),
-          AppSizes.spaceXs,
-          Text(
-            result.recommendedFertilizer,
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+              const SizedBox(height: 4),
+              const Text(
+                'Best fertilizer for your field',
+                style: TextStyle(
+                  fontSize: 13,
                   color: AppColors.primaryGreen,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w600,
                 ),
-          ),
-          AppSizes.spaceL,
-          Text(
-            'Confidence Score',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.textLight,
-                  fontWeight: FontWeight.w500,
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Confidence',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textMedium,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  Text(
+                    '$confPct%',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primaryGreen,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: LinearProgressIndicator(
+                  value: result.confidence / 100.0,
+                  minHeight: 8,
+                  backgroundColor: const Color(0xFFE8F5E9),
+                  valueColor: const AlwaysStoppedAnimation<Color>(
+                    AppColors.primaryGreen,
+                  ),
                 ),
+              ),
+            ],
           ),
-          AppSizes.spaceXs,
-          Text(
-            '${result.confidence.toStringAsFixed(2)}%',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: AppColors.primaryGreen,
-                  fontWeight: FontWeight.bold,
-                ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
   Widget _buildNpkAnalysisCard(BuildContext context) {
     final analysis = result.npkAnalysis;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSizes.l),
-      decoration: BoxDecoration(
-        color: AppColors.white.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(AppSizes.radiusLarge),
-        border: Border.all(
-          color: AppColors.white.withValues(alpha: 0.8),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Soil Nutrient Status (NPK & pH)',
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textDark,
-                ),
-          ),
-          AppSizes.spaceM,
-          _buildNpkStatusRow('Nitrogen (N)', analysis.nitrogenStatus),
-          const Divider(color: AppColors.glassBorder),
-          _buildNpkStatusRow('Phosphorus (P)', analysis.phosphorusStatus),
-          const Divider(color: AppColors.glassBorder),
-          _buildNpkStatusRow('Potassium (K)', analysis.potassiumStatus),
-          const Divider(color: AppColors.glassBorder),
-          _buildNpkStatusRow('Soil pH', analysis.phStatus),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNpkStatusRow(String label, String status) {
-    Color badgeColor = Colors.grey;
-    Color textColor = Colors.white;
-
-    final lowerStatus = status.toLowerCase();
-    if (lowerStatus == 'optimal' || lowerStatus == 'neutral') {
-      badgeColor = AppColors.primaryGreen;
-    } else if (lowerStatus == 'high') {
-      badgeColor = Colors.orange;
-    } else if (lowerStatus == 'low') {
-      badgeColor = Colors.redAccent;
-    }
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSizes.xs),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(color: AppColors.textMedium, fontWeight: FontWeight.w500),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: AppSizes.m, vertical: AppSizes.xs),
-            decoration: BoxDecoration(
-              color: badgeColor.withValues(alpha: 0.85),
-              borderRadius: BorderRadius.circular(AppSizes.radiusSmall),
-            ),
-            child: Text(
-              status,
-              style: TextStyle(
-                color: textColor,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildClimateDataCard(BuildContext context) {
     final climate = result.climateData;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSizes.l),
-      decoration: BoxDecoration(
-        color: AppColors.white.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(AppSizes.radiusLarge),
-        border: Border.all(
-          color: AppColors.white.withValues(alpha: 0.8),
-          width: 1,
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // SOIL PARAMETERS (3 rows x 2 columns)
+        const Text(
+          'SOIL PARAMETERS',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.1,
+            color: Color(0xFF5B8C67),
+          ),
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Climate Data (${climate.season})',
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textDark,
+        const SizedBox(height: 10),
+        Column(
+          children: [
+            // Row 1: Nitrogen | pH Level
+            Row(
+              children: [
+                Expanded(
+                  child: _buildParamTile(
+                    icon: const Text(
+                      'N',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF2C6B30),
+                        fontSize: 16,
+                      ),
+                    ),
+                    label: 'Nitrogen',
+                    value: analysis.nitrogenStatus,
+                  ),
                 ),
-          ),
-          AppSizes.spaceS,
-          _buildClimateRow('Average Temperature', '${climate.temperature}°C'),
-          const Divider(color: AppColors.glassBorder),
-          _buildClimateRow('Humidity', '${climate.humidity}%'),
-          const Divider(color: AppColors.glassBorder),
-          _buildClimateRow('Seasonal Rainfall', '${climate.rainfall} mm'),
-          AppSizes.spaceS,
-          Align(
-            alignment: Alignment.bottomRight,
-            child: Text(
-              'Source: ${climate.source}',
-              style: const TextStyle(
-                fontSize: 10,
-                fontStyle: FontStyle.italic,
-                color: AppColors.textLight,
-              ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _buildParamTile(
+                    icon: const Icon(
+                      Icons.science_outlined,
+                      size: 20,
+                      color: Color(0xFF2C6B30),
+                    ),
+                    label: 'pH Level',
+                    value: analysis.phStatus,
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
+            const SizedBox(height: 10),
+            // Row 2: Phosphorus | Moisture
+            Row(
+              children: [
+                Expanded(
+                  child: _buildParamTile(
+                    icon: const Text(
+                      'P',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF2C6B30),
+                        fontSize: 16,
+                      ),
+                    ),
+                    label: 'Phosphorus',
+                    value: analysis.phosphorusStatus,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _buildParamTile(
+                    icon: const Icon(
+                      Icons.water_drop_outlined,
+                      size: 20,
+                      color: Color(0xFF2C6B30),
+                    ),
+                    label: 'Moisture',
+                    value: '${climate.humidity.toInt()}%',
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            // Row 3: Potassium | Temp
+            Row(
+              children: [
+                Expanded(
+                  child: _buildParamTile(
+                    icon: const Text(
+                      'K',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF2C6B30),
+                        fontSize: 16,
+                      ),
+                    ),
+                    label: 'Potassium',
+                    value: analysis.potassiumStatus,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _buildParamTile(
+                    icon: const Icon(
+                      Icons.thermostat_outlined,
+                      size: 20,
+                      color: Color(0xFF2C6B30),
+                    ),
+                    label: 'Temp',
+                    value: '${climate.temperature.toInt()}°C',
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
     );
   }
 
-  Widget _buildClimateRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSizes.xs),
+
+  Widget _buildParamTile({
+    required Widget icon,
+    required String label,
+    required String value,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE5EFE6),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFD6E5D7), width: 1),
+      ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: const TextStyle(color: AppColors.textMedium, fontWeight: FontWeight.w500),
-          ),
-          Text(
-            value,
-            style: const TextStyle(color: AppColors.textDark, fontWeight: FontWeight.bold),
+          SizedBox(width: 24, child: Center(child: icon)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textMedium,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textDark,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -331,14 +370,17 @@ class FertilizerRecommendationScreen extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.psychology_outlined, color: AppColors.primaryGreen),
+              const Icon(
+                Icons.psychology_outlined,
+                color: AppColors.primaryGreen,
+              ),
               const SizedBox(width: AppSizes.s),
               Text(
                 'Explanation & Advice',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textDark,
-                    ),
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textDark,
+                ),
               ),
             ],
           ),
@@ -346,9 +388,9 @@ class FertilizerRecommendationScreen extends StatelessWidget {
           Text(
             'Application Advice:',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textDark,
-                ),
+              fontWeight: FontWeight.bold,
+              color: AppColors.textDark,
+            ),
           ),
           const SizedBox(height: AppSizes.xs),
           Text(
@@ -363,9 +405,9 @@ class FertilizerRecommendationScreen extends StatelessWidget {
           Text(
             'Rationale:',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textDark,
-                ),
+              fontWeight: FontWeight.bold,
+              color: AppColors.textDark,
+            ),
           ),
           const SizedBox(height: AppSizes.xs),
           Text(
@@ -385,16 +427,8 @@ class FertilizerRecommendationScreen extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.all(AppSizes.xl),
       child: PrimaryButton(
-        text: 'Save to History',
-        icon: Icons.check_circle_outline_rounded,
+        text: 'Continue',
         onPressed: () {
-          controller.saveToHistory();
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Recommendation successfully saved to History!'),
-              backgroundColor: AppColors.primaryGreen,
-            ),
-          );
           Navigator.of(context).popUntil((route) => route.isFirst);
         },
       ),

@@ -53,16 +53,20 @@ class UserProfileModel {
   }
 
   factory UserProfileModel.fromJson(Map<String, dynamic> json) {
+    final data = (json.containsKey('data') && json['data'] is Map<String, dynamic>)
+        ? json['data'] as Map<String, dynamic>
+        : json;
+
     return UserProfileModel(
-      id: json['id'] ?? 0,
-      username: json['username'] ?? '',
-      email: json['email'] ?? '',
-      firstName: json['first_name'] ?? '',
-      lastName: json['last_name'] ?? '',
-      isStaff: json['is_staff'] ?? false,
-      dateJoined: json['date_joined'] ?? '',
-      profile: json['profile'] != null
-          ? UserProfileDetailsModel.fromJson(json['profile'] as Map<String, dynamic>)
+      id: data['id'] as int? ?? 0,
+      username: data['username'] as String? ?? '',
+      email: data['email'] as String? ?? '',
+      firstName: data['first_name'] as String? ?? '',
+      lastName: data['last_name'] as String? ?? '',
+      isStaff: data['is_staff'] as bool? ?? false,
+      dateJoined: data['date_joined'] as String? ?? '',
+      profile: data['profile'] != null && data['profile'] is Map<String, dynamic>
+          ? UserProfileDetailsModel.fromJson(data['profile'] as Map<String, dynamic>)
           : null,
     );
   }

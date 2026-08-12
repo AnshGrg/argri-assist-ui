@@ -1,7 +1,5 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_sizes.dart';
 import '../controllers/history_controller.dart';
 import '../models/history_item_model.dart';
 import 'prediction_details_screen.dart';
@@ -18,6 +16,12 @@ class HistoryScreen extends StatefulWidget {
 class _HistoryScreenState extends State<HistoryScreen> {
   final TextEditingController _searchController = TextEditingController();
 
+  String _selectedType = 'All Types';
+  String _selectedSort = 'Newest';
+
+  static const _typeOptions = ['All Types', 'Crop', 'Fertilizer'];
+  static const _sortOptions = ['Newest', 'Oldest', 'Highest Confidence'];
+
   @override
   void initState() {
     super.initState();
@@ -32,49 +36,167 @@ class _HistoryScreenState extends State<HistoryScreen> {
     super.dispose();
   }
 
+  List<HistoryItemModel> get _displayedList {
+    var list = widget.controller.filteredHistory.toList();
+
+    // Type filter
+    if (_selectedType == 'Crop') {
+      list = list.where((e) => e.historyType == HistoryType.crop).toList();
+    } else if (_selectedType == 'Fertilizer') {
+      list = list
+          .where((e) => e.historyType == HistoryType.fertilizer)
+          .toList();
+    }
+
+    // Sort
+    if (_selectedSort == 'Newest') {
+      list.sort((a, b) {
+        if (a.createdAt == null && b.createdAt == null) return 0;
+        if (a.createdAt == null) return 1;
+        if (b.createdAt == null) return -1;
+        return b.createdAt!.compareTo(a.createdAt!);
+      });
+    } else if (_selectedSort == 'Oldest') {
+      list.sort((a, b) {
+        if (a.createdAt == null && b.createdAt == null) return 0;
+        if (a.createdAt == null) return 1;
+        if (b.createdAt == null) return -1;
+        return a.createdAt!.compareTo(b.createdAt!);
+      });
+    } else if (_selectedSort == 'Highest Confidence') {
+      list.sort((a, b) => b.confidenceScore.compareTo(a.confidenceScore));
+    }
+
+    return list;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          // Background Image
-          Positioned.fill(
-            child: Image.asset(
-              'assets/images/background.jpg',
-              fit: BoxFit.cover,
-            ),
-          ),
-          // Blur Filter & Translucent Overlay
-          Positioned.fill(
-            child: ClipRect(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 40.0, sigmaY: 40.0),
-                child: Container(
-                  color: AppColors.backgroundGreen.withValues(alpha: 0.65),
+      backgroundColor: const Color(0xFFEDF7EE),
+      body: SafeArea(
+        child: AnimatedBuilder(
+          animation: widget.controller,
+          builder: (context, _) {
+            final list = _displayedList;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSearchBar(context),
+                _buildFilterRow(context),
+                _buildResultCount(context, list.length),
+                Expanded(
+                  child: widget.controller.isLoading
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                            color: AppColors.primaryGreen,
+                          ),
+                        )
+                      : list.isEmpty
+                      ? _buildEmptyState(context)
+                      : _buildHistoryList(context, list),
                 ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchBar(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: TextField(
+          controller: _searchController,
+          onChanged: widget.controller.setSearchQuery,
+          style: const TextStyle(fontSize: 14, color: AppColors.textDark),
+          decoration: InputDecoration(
+            hintText: 'Search by crop, date, or location...',
+            hintStyle: TextStyle(color: AppColors.textLight, fontSize: 14),
+            prefixIcon: const Icon(
+              Icons.search_rounded,
+              color: AppColors.textLight,
+              size: 20,
+            ),
+            suffixIcon: _searchController.text.isNotEmpty
+                ? GestureDetector(
+                    onTap: () {
+                      _searchController.clear();
+                      widget.controller.setSearchQuery('');
+                      setState(() {});
+                    },
+                    child: const Icon(
+                      Icons.close_rounded,
+                      color: AppColors.textLight,
+                      size: 18,
+                    ),
+                  )
+                : null,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(
+                color: AppColors.primaryGreen.withValues(alpha: 0.4),
+                width: 1.5,
               ),
             ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
+            filled: true,
+            fillColor: Colors.white,
           ),
-          // Screen UI
-          SafeArea(
-            child: AnimatedBuilder(
-              animation: widget.controller,
-              builder: (context, _) {
-                return Column(
-                  children: [
-                    _buildAppBar(context),
-                    _buildSearchBar(context),
-                    Expanded(
-                      child: widget.controller.isLoading
-                          ? const Center(
-                              child: CircularProgressIndicator(color: AppColors.primaryGreen),
-                            )
-                          : widget.controller.filteredHistory.isEmpty
-                              ? _buildEmptyState(context)
-                              : _buildHistoryList(context, widget.controller.filteredHistory),
-                    ),
-                  ],
-                );
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterRow(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Row(
+        children: [
+          // Type Filter Dropdown
+          Expanded(
+            child: _buildDropdownButton(
+              icon: Icons.tune_rounded,
+              value: _selectedType,
+              options: _typeOptions,
+              onChanged: (v) {
+                if (v != null) setState(() => _selectedType = v);
+              },
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Sort Dropdown
+          Expanded(
+            child: _buildDropdownButton(
+              icon: Icons.swap_vert_rounded,
+              value: _selectedSort,
+              options: _sortOptions,
+              onChanged: (v) {
+                if (v != null) setState(() => _selectedSort = v);
               },
             ),
           ),
@@ -83,78 +205,68 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
-  Widget _buildAppBar(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSizes.xl,
-        vertical: AppSizes.s,
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            'Prediction History',
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textDark,
-                ),
-          ),
-          IconButton(
-            icon: const Icon(
-              Icons.filter_list_rounded,
-              color: AppColors.primaryGreen,
-              size: AppSizes.iconMedium,
-            ),
-            onPressed: () {
-              // Trigger filter dialog implementation
-            },
+  Widget _buildDropdownButton({
+    required IconData icon,
+    required String value,
+    required List<String> options,
+    required ValueChanged<String?> onChanged,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
         ],
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          icon: const Icon(
+            Icons.keyboard_arrow_down_rounded,
+            size: 20,
+            color: AppColors.textMedium,
+          ),
+          isExpanded: true,
+          style: const TextStyle(
+            color: AppColors.textDark,
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
+          items: options.map((opt) {
+            return DropdownMenuItem(
+              value: opt,
+              child: Row(
+                children: [
+                  if (opt == value) ...[
+                    Icon(icon, size: 16, color: AppColors.primaryGreen),
+                    const SizedBox(width: 6),
+                  ],
+                  Text(opt),
+                ],
+              ),
+            );
+          }).toList(),
+          onChanged: onChanged,
+        ),
       ),
     );
   }
 
-  Widget _buildSearchBar(BuildContext context) {
+  Widget _buildResultCount(BuildContext context, int count) {
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSizes.xl,
-        vertical: AppSizes.s,
-      ),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: AppSizes.m),
-        decoration: BoxDecoration(
-          color: AppColors.white.withValues(alpha: 0.6),
-          borderRadius: BorderRadius.circular(AppSizes.radiusLarge),
-          border: Border.all(
-            color: AppColors.white.withValues(alpha: 0.8),
-            width: 1.0,
-          ),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.search_rounded, color: AppColors.textLight),
-            const SizedBox(width: AppSizes.s),
-            Expanded(
-              child: TextField(
-                controller: _searchController,
-                onChanged: widget.controller.setSearchQuery,
-                decoration: const InputDecoration(
-                  hintText: 'Search crops or fertilizers...',
-                  border: InputBorder.none,
-                  hintStyle: TextStyle(color: AppColors.textLight, fontSize: 14),
-                ),
-                style: const TextStyle(color: AppColors.textDark, fontSize: 14),
-              ),
-            ),
-            if (_searchController.text.isNotEmpty)
-              GestureDetector(
-                onTap: () {
-                  _searchController.clear();
-                  widget.controller.setSearchQuery('');
-                },
-                child: const Icon(Icons.close_rounded, color: AppColors.textLight),
-              ),
-          ],
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Text(
+        '$count prediction${count == 1 ? '' : 's'} found',
+        style: const TextStyle(
+          fontSize: 13,
+          color: AppColors.textMedium,
+          fontWeight: FontWeight.w500,
         ),
       ),
     );
@@ -165,18 +277,31 @@ class _HistoryScreenState extends State<HistoryScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(
-            Icons.history_toggle_off_rounded,
-            size: 64,
-            color: AppColors.textLight,
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: AppColors.lightGreen,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.history_toggle_off_rounded,
+              size: 48,
+              color: AppColors.primaryGreen,
+            ),
           ),
-          AppSizes.spaceM,
+          const SizedBox(height: 16),
+          const Text(
+            'No predictions found',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textDark,
+            ),
+          ),
+          const SizedBox(height: 6),
           Text(
-            'No history matches found',
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textMedium,
-                ),
+            'Try adjusting your search or filters',
+            style: TextStyle(fontSize: 13, color: AppColors.textMedium),
           ),
         ],
       ),
@@ -185,129 +310,214 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   Widget _buildHistoryList(BuildContext context, List<HistoryItemModel> list) {
     return ListView.separated(
-      padding: const EdgeInsets.all(AppSizes.xl),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
       itemCount: list.length,
-      separatorBuilder: (context, index) => AppSizes.spaceM,
+      separatorBuilder: (context, i) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
-        final item = list[index];
-        return _buildHistoryItem(context, item);
+        return _buildHistoryCard(context, list[index]);
       },
     );
   }
 
-  Widget _buildHistoryItem(BuildContext context, HistoryItemModel item) {
-    // Choose icons
-    IconData cropIcon = Icons.grass;
-    Color iconColor = AppColors.primaryGreen;
+  Widget _buildHistoryCard(BuildContext context, HistoryItemModel item) {
+    final isFertilizer = item.historyType == HistoryType.fertilizer;
+
+    // Icon & gradient based on type/crop
+    IconData cropIcon;
+    List<Color> iconGradient;
+    Color iconColor;
 
     switch (item.cropName.toLowerCase()) {
-      case 'maize':
-        cropIcon = Icons.wb_twilight_rounded;
+      case 'rice':
+        cropIcon = Icons.eco;
+        iconGradient = [const Color(0xFF388E3C), const Color(0xFF66BB6A)];
         iconColor = Colors.amber;
         break;
       case 'wheat':
         cropIcon = Icons.grain;
-        iconColor = Colors.orangeAccent;
+        iconGradient = [const Color(0xFFF57F17), const Color(0xFFFFB300)];
+        iconColor = Colors.white;
         break;
-      case 'rice':
-        cropIcon = Icons.eco;
-        iconColor = Colors.green;
+      case 'maize':
+      case 'corn':
+        cropIcon = Icons.wb_twilight_rounded;
+        iconGradient = [const Color(0xFFF9A825), const Color(0xFFFFD54F)];
+        iconColor = Colors.white;
         break;
       case 'cotton':
         cropIcon = Icons.cloud_queue_rounded;
-        iconColor = Colors.lightBlueAccent;
+        iconGradient = [const Color(0xFF0288D1), const Color(0xFF4FC3F7)];
+        iconColor = Colors.white;
         break;
       case 'groundnut':
-        cropIcon = Icons.lens_blur_rounded;
-        iconColor = Colors.brown;
+        cropIcon = Icons.circle_outlined;
+        iconGradient = [const Color(0xFF6D4C41), const Color(0xFFA1887F)];
+        iconColor = Colors.white;
         break;
+      default:
+        if (isFertilizer) {
+          cropIcon = Icons.science_rounded;
+          iconGradient = [const Color(0xFF00838F), const Color(0xFF26C6DA)];
+          iconColor = Colors.white;
+        } else {
+          cropIcon = Icons.grass_rounded;
+          iconGradient = [const Color(0xFF2E7D32), const Color(0xFF4CAF50)];
+          iconColor = Colors.amber;
+        }
     }
 
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.white.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(AppSizes.radiusLarge),
-        border: Border.all(
-          color: AppColors.white.withValues(alpha: 0.8),
-          width: 1,
-        ),
-        boxShadow: const [
-          BoxShadow(
-            color: AppColors.cardShadow,
-            blurRadius: 6,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: AppSizes.m,
-          vertical: AppSizes.xs,
-        ),
-        leading: CircleAvatar(
-          backgroundColor: AppColors.lightGreen,
-          radius: 24,
-          child: Icon(
-            cropIcon,
-            color: iconColor,
-            size: AppSizes.iconLarge,
-          ),
-        ),
-        title: Text(
-          item.cropName,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: AppColors.textDark,
+    // Confidence as percentage (0–1 → 0–100)
+    final confidencePct = item.confidenceScore <= 1.0
+        ? (item.confidenceScore * 100).round()
+        : item.confidenceScore.round();
+
+    // Display recommendation text
+    final recommendation = isFertilizer
+        ? (item.recommendedFertilizer ?? 'Pending')
+        : 'Recommended: ${item.cropName}';
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.of(context)
+            .push(
+              MaterialPageRoute(
+                builder: (context) => PredictionDetailsScreen(item: item),
               ),
-        ),
-        subtitle: Text(
-          item.date,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.textLight,
-              ),
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  item.recommendedFertilizer ?? 'Pending',
-                  style: const TextStyle(
-                    color: AppColors.textGreenLink,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-                if (item.fertilizerDosage != null)
-                  Text(
-                    item.fertilizerDosage!,
-                    style: const TextStyle(
-                      color: AppColors.textLight,
-                      fontSize: 11,
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(width: AppSizes.s),
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: AppColors.textLight,
+            )
+            .then((_) {
+              widget.controller.loadHistory();
+            });
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => PredictionDetailsScreen(item: item),
-            ),
-          ).then((_) {
-            // reload list in case updates were made
-            widget.controller.loadHistory();
-          });
-        },
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Top Row: Icon + Title + Status Badge
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Gradient Icon
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      gradient: LinearGradient(
+                        colors: iconGradient,
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                    child: Icon(cropIcon, color: iconColor, size: 24),
+                  ),
+                  const SizedBox(width: 12),
+                  // Title & meta info
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.cropName,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textDark,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        // Date
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.calendar_today_outlined,
+                              size: 12,
+                              color: AppColors.textLight,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              item.date,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textLight,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Recommendation Chip
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE8F5E9),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  recommendation,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primaryGreen,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Confidence Row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Confidence',
+                    style: TextStyle(fontSize: 13, color: AppColors.textMedium),
+                  ),
+                  Text(
+                    '$confidencePct%',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primaryGreen,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              // Confidence Progress Bar
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: item.confidenceScore <= 1.0
+                      ? item.confidenceScore
+                      : item.confidenceScore / 100.0,
+                  backgroundColor: const Color(0xFFE8F5E9),
+                  valueColor: const AlwaysStoppedAnimation<Color>(
+                    AppColors.primaryGreen,
+                  ),
+                  minHeight: 6,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

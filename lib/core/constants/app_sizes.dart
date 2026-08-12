@@ -12,7 +12,7 @@ class AppSizes {
   static const double xxl = 24.0;
   static const double xxxl = 32.0;
 
-  // Border Radii
+  // Border Radius
   static const double radiusSmall = 8.0;
   static const double radiusMedium = 12.0;
   static const double radiusLarge = 16.0;

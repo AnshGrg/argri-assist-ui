@@ -22,7 +22,6 @@ class AnalyticsKpiModel {
   factory AnalyticsKpiModel.fromJson(Map<String, dynamic> json) {
     final kpiJson = json['kpis'] as Map<String, dynamic>? ?? json;
 
-    // Extract NPK object if returned as nested 'npk_deficiencies' or fallback to root keys
     final npkObj = kpiJson['npk_deficiencies'] as Map<String, dynamic>? ??
         (json['npk_deficiencies'] as Map<String, dynamic>?);
 

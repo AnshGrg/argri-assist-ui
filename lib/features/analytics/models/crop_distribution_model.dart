@@ -88,36 +88,50 @@ class SeasonalCropDistribution {
 }
 
 class CropDistributionResponse {
+  final String status;
   final List<CropLeaderboardItem> topCropsLeaderboard;
   final List<SeasonalCropDistribution> seasonalDistribution;
 
   CropDistributionResponse({
+    this.status = 'success',
     required this.topCropsLeaderboard,
     required this.seasonalDistribution,
   });
 
   factory CropDistributionResponse.fromJson(Map<String, dynamic> json) {
-    final dataObj = json['crop_distribution'] is Map<String, dynamic>
-        ? json['crop_distribution'] as Map<String, dynamic>
-        : json;
+    final statusStr = json['status'] as String? ?? 'success';
 
-    final rawLeaderboard = dataObj['top_crops_leaderboard'] as List<dynamic>? ?? [];
-    final rawSeasonal = dataObj['seasonal_distribution'] as List<dynamic>? ?? [];
+    final rawLeaderboard = (json['top_crops_leaderboard'] as List<dynamic>?) ??
+        (json['crop_distribution'] is Map
+            ? (json['crop_distribution']['top_crops_leaderboard'] as List<dynamic>?)
+            : null) ??
+        [];
+
+    final rawSeasonal = (json['crop_distribution'] is List
+            ? json['crop_distribution'] as List<dynamic>
+            : null) ??
+        (json['seasonal_distribution'] as List<dynamic>?) ??
+        (json['data'] as List<dynamic>?) ??
+        [];
 
     return CropDistributionResponse(
+      status: statusStr,
       topCropsLeaderboard: rawLeaderboard
-          .map((item) => CropLeaderboardItem.fromJson(item as Map<String, dynamic>))
+          .whereType<Map<String, dynamic>>()
+          .map((item) => CropLeaderboardItem.fromJson(item))
           .toList(),
-      seasonalDistribution: rawSeasonal.map((item) {
-        if (item is Map<String, dynamic>) {
-          return SeasonalCropDistribution(
-            season: item['season'] ?? '',
-            totalRecommendations: (item['count'] as num?)?.toInt() ?? 0,
-            topCrops: [],
-          );
-        }
-        return SeasonalCropDistribution(season: '', totalRecommendations: 0, topCrops: []);
-      }).toList(),
+      seasonalDistribution: rawSeasonal
+          .whereType<Map<String, dynamic>>()
+          .map((item) => SeasonalCropDistribution.fromJson(item))
+          .toList(),
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'status': status,
+      'top_crops_leaderboard': topCropsLeaderboard.map((e) => e.toJson()).toList(),
+      'crop_distribution': seasonalDistribution.map((e) => e.toJson()).toList(),
+    };
   }
 }

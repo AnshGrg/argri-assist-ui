@@ -3,7 +3,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../features/auth/models/auth_tokens_model.dart';
 import '../../features/predict/controllers/predict_controller.dart';
 
-/// Persists auth tokens and user city preference to SharedPreferences so they survive app restarts.
 class TokenStorage {
   static const _key = 'auth_tokens';
   static const _cityKey = 'user_selected_city';
@@ -13,7 +12,7 @@ class TokenStorage {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_key, jsonEncode(tokens.toJson()));
     } catch (e) {
-      // Gracefully handle platform channel missing or error
+      // missing error
     }
   }
 
@@ -38,7 +37,6 @@ class TokenStorage {
     } catch (_) {}
   }
 
-  /// Save selected user city (stores city name)
   static Future<void> saveSelectedCity(String city) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -46,7 +44,6 @@ class TokenStorage {
     } catch (_) {}
   }
 
-  /// Load selected user city LocationOption
   static Future<LocationOption> loadSelectedCity() async {
     try {
       final prefs = await SharedPreferences.getInstance();

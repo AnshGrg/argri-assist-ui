@@ -1,8 +1,6 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_sizes.dart';
-import '../../../core/widgets/primary_button.dart';
 import '../../../core/widgets/nutrient_input_field.dart';
 import '../controllers/predict_controller.dart';
 import 'predict_crop_result_screen.dart';
@@ -17,56 +15,111 @@ class PredictCropScreen extends StatefulWidget {
 }
 
 class _PredictCropScreenState extends State<PredictCropScreen> {
+  late final TextEditingController _phController;
+
+  @override
+  void initState() {
+    super.initState();
+    _phController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _phController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
+      backgroundColor: const Color(0xFFEDF7EE),
+      body: SafeArea(
+        child: AnimatedBuilder(
+          animation: widget.controller,
+          builder: (context, _) {
+            return Column(
+              children: [
+                _buildHeader(context),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildNpkSection(context),
+                        const SizedBox(height: 20),
+                        _buildLocationSection(context),
+                        const SizedBox(height: 20),
+                        _buildSeasonSection(context),
+                        const SizedBox(height: 20),
+                        _buildPhSection(context),
+                        const SizedBox(height: 24),
+                        _buildSubmitButton(context),
+                        const SizedBox(height: 16),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Background Image
-          Positioned.fill(
-            child: Image.asset(
-              'assets/images/background.jpg',
-              fit: BoxFit.cover,
-            ),
-          ),
-          // Blur Filter & Translucent Overlay
-          Positioned.fill(
-            child: ClipRect(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 40.0, sigmaY: 40.0),
+          Row(
+            children: [
+              GestureDetector(
+                onTap: () {
+                  if (Navigator.canPop(context)) {
+                    Navigator.of(context).pop();
+                  }
+                },
                 child: Container(
-                  color: AppColors.backgroundGreen.withValues(alpha: 0.65),
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.chevron_left_rounded,
+                    color: AppColors.textDark,
+                    size: 24,
+                  ),
                 ),
               ),
-            ),
+              const SizedBox(width: 14),
+              const Text(
+                'Crop Prediction',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textDark,
+                ),
+              ),
+            ],
           ),
-          // Screen Content
-          SafeArea(
-            child: AnimatedBuilder(
-              animation: widget.controller,
-              builder: (context, _) {
-                return Column(
-                  children: [
-                    _buildAppBar(context),
-                    Expanded(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(AppSizes.xl),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildNutrientsSection(context),
-                            AppSizes.spaceXl,
-                            _buildParametersSection(context),
-                            AppSizes.spaceXl,
-                            _buildInfoNotice(context),
-                          ],
-                        ),
-                      ),
-                    ),
-                    _buildFooterButton(context),
-                  ],
-                );
-              },
+          const SizedBox(height: 10),
+          const Text(
+            'Enter your field details to get recommendations',
+            style: TextStyle(
+              fontSize: 13,
+              color: AppColors.textMedium,
             ),
           ),
         ],
@@ -74,436 +127,373 @@ class _PredictCropScreenState extends State<PredictCropScreen> {
     );
   }
 
-  Widget _buildAppBar(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSizes.l,
-        vertical: AppSizes.s,
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            'Predict Crop',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: AppColors.textDark,
-            ),
-          ),
-          IconButton(
-            icon: const Icon(
-              Icons.info_outline_rounded,
-              color: AppColors.primaryGreen,
-              size: AppSizes.iconMedium,
-            ),
-            onPressed: () => _showInfoDialog(context),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNutrientsSection(BuildContext context) {
+  Widget _buildNpkSection(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Soil Nutrients (kg/ha)',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+        const Text(
+          'NPK Ratio',
+          style: TextStyle(
+            fontSize: 14,
             fontWeight: FontWeight.bold,
             color: AppColors.textDark,
           ),
         ),
-        AppSizes.spaceM,
+        const SizedBox(height: 10),
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Expanded(
               child: NutrientInputField(
                 label: 'Nitrogen (N)',
-                initialValue: widget.controller.nitrogen.toInt().toString(),
+                hintText: 'e.g., 90',
                 onChanged: widget.controller.setNitrogen,
               ),
             ),
-            AppSizes.spaceM,
+            const SizedBox(width: 12),
             Expanded(
               child: NutrientInputField(
                 label: 'Phosphorus (P)',
-                initialValue: widget.controller.phosphorus.toInt().toString(),
+                hintText: 'e.g., 42',
                 onChanged: widget.controller.setPhosphorus,
               ),
             ),
-            AppSizes.spaceM,
+            const SizedBox(width: 12),
             Expanded(
               child: NutrientInputField(
                 label: 'Potassium (K)',
-                initialValue: widget.controller.potassium.toInt().toString(),
+                hintText: 'e.g., 43',
                 onChanged: widget.controller.setPotassium,
               ),
             ),
           ],
         ),
+        const SizedBox(height: 6),
+        const Text(
+          'Nitrogen-Phosphorus-Potassium ratio',
+          style: TextStyle(
+            fontSize: 11,
+            color: AppColors.textLight,
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildParametersSection(BuildContext context) {
+  Widget _buildLocationSection(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Location & Environment',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+        const Text(
+          'Location / Field',
+          style: TextStyle(
+            fontSize: 14,
             fontWeight: FontWeight.bold,
             color: AppColors.textDark,
           ),
         ),
-        AppSizes.spaceM,
-        // Location Dropdown Card
+        const SizedBox(height: 10),
         Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSizes.l,
-            vertical: AppSizes.s,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
           decoration: BoxDecoration(
-            color: AppColors.white.withValues(alpha: 0.6),
-            borderRadius: BorderRadius.circular(AppSizes.radiusLarge),
-            border: Border.all(
-              color: AppColors.white.withValues(alpha: 0.8),
-              width: 1,
-            ),
-            boxShadow: const [
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
               BoxShadow(
-                color: AppColors.cardShadow,
+                color: Colors.black.withValues(alpha: 0.04),
                 blurRadius: 6,
-                offset: Offset(0, 2),
+                offset: const Offset(0, 2),
               ),
             ],
           ),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Location',
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.textDark,
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFCE4EC),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.location_on_rounded,
+                  color: Color(0xFFE91E63),
+                  size: 18,
                 ),
               ),
-              DropdownButton<LocationOption>(
-                value: widget.controller.selectedLocation,
-                underline: const SizedBox(),
-                icon: const Icon(
-                  Icons.keyboard_arrow_down_rounded,
-                  color: AppColors.textMedium,
-                ),
-                dropdownColor: AppColors.backgroundGreen,
-                onChanged: (LocationOption? newValue) {
-                  if (newValue != null) {
-                    widget.controller.setLocation(newValue);
-                  }
-                },
-                items: PredictController.locationOptions
-                    .map<DropdownMenuItem<LocationOption>>((
-                      LocationOption value,
-                    ) {
+              const SizedBox(width: 12),
+              Expanded(
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<LocationOption>(
+                    value: widget.controller.selectedLocation,
+                    icon: const Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: AppColors.textLight,
+                      size: 20,
+                    ),
+                    isExpanded: true,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: AppColors.textDark,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    onChanged: (newValue) {
+                      if (newValue != null) {
+                        widget.controller.setLocation(newValue);
+                      }
+                    },
+                    items: PredictController.locationOptions
+                        .map<DropdownMenuItem<LocationOption>>((loc) {
                       return DropdownMenuItem<LocationOption>(
-                        value: value,
-                        child: Text(
-                          value.name,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textDark,
-                          ),
-                        ),
+                        value: loc,
+                        child: Text(loc.displayName),
                       );
-                    })
-                    .toList(),
-              ),
-            ],
-          ),
-        ),
-        AppSizes.spaceM,
-        // Season Dropdown Card
-        Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSizes.l,
-            vertical: AppSizes.s,
-          ),
-          decoration: BoxDecoration(
-            color: AppColors.white.withValues(alpha: 0.6),
-            borderRadius: BorderRadius.circular(AppSizes.radiusLarge),
-            border: Border.all(
-              color: AppColors.white.withValues(alpha: 0.8),
-              width: 1,
-            ),
-            boxShadow: const [
-              BoxShadow(
-                color: AppColors.cardShadow,
-                blurRadius: 6,
-                offset: Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Season',
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.textDark,
+                    }).toList(),
+                  ),
                 ),
               ),
-              DropdownButton<String>(
-                value: widget.controller.selectedSeason,
-                underline: const SizedBox(),
-                icon: const Icon(
-                  Icons.keyboard_arrow_down_rounded,
-                  color: AppColors.textMedium,
-                ),
-                dropdownColor: AppColors.backgroundGreen,
-                onChanged: (String? newValue) {
-                  if (newValue != null) {
-                    widget.controller.setSeason(newValue);
-                  }
-                },
-                items: PredictController.seasonOptions
-                    .map<DropdownMenuItem<String>>((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(
-                          value,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textDark,
-                          ),
-                        ),
-                      );
-                    })
-                    .toList(),
-              ),
             ],
           ),
-        ),
-        AppSizes.spaceM,
-        // Soil pH Card
-        _buildParameterItem(
-          context: context,
-          label: 'Soil pH',
-          value: widget.controller.ph.toString(),
-          isFetching: false,
-          actionIcon: Icons.edit_outlined,
-          onActionTap: () => _showPhEditDialog(context),
         ),
       ],
     );
   }
 
-  Widget _buildParameterItem({
-    required BuildContext context,
-    required String label,
-    required String value,
-    required bool isFetching,
-    String? badgeText,
-    required IconData actionIcon,
-    required VoidCallback onActionTap,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(AppSizes.l),
-      decoration: BoxDecoration(
-        color: AppColors.white.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(AppSizes.radiusLarge),
-        border: Border.all(
-          color: AppColors.white.withValues(alpha: 0.8),
-          width: 1,
+  Widget _buildSeasonSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Season',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textDark,
+          ),
         ),
-        boxShadow: const [
-          BoxShadow(
-            color: AppColors.cardShadow,
-            blurRadius: 6,
-            offset: Offset(0, 2),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              fontWeight: FontWeight.w500,
-              color: AppColors.textDark,
-            ),
-          ),
-          Row(
+          child: Row(
             children: [
-              if (isFetching)
-                const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      AppColors.primaryGreen,
-                    ),
-                  ),
-                )
-              else
-                Text(
-                  value,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textDark,
-                  ),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFE8F5E9),
+                  shape: BoxShape.circle,
                 ),
-              const SizedBox(width: AppSizes.s),
-              if (badgeText != null) ...[
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSizes.s,
-                    vertical: AppSizes.xs,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.lightGreen,
-                    borderRadius: BorderRadius.circular(AppSizes.radiusSmall),
-                  ),
-                  child: Text(
-                    badgeText,
+                child: const Icon(
+                  Icons.eco_rounded,
+                  color: AppColors.primaryGreen,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: widget.controller.selectedSeason,
+                    icon: const Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: AppColors.textLight,
+                      size: 20,
+                    ),
+                    isExpanded: true,
                     style: const TextStyle(
-                      color: AppColors.primaryGreen,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: AppColors.textDark,
+                      fontWeight: FontWeight.w500,
                     ),
+                    onChanged: (newValue) {
+                      if (newValue != null) {
+                        widget.controller.setSeason(newValue);
+                      }
+                    },
+                    items: PredictController.seasonOptions
+                        .map<DropdownMenuItem<String>>((season) {
+                      return DropdownMenuItem<String>(
+                        value: season,
+                        child: Text(season),
+                      );
+                    }).toList(),
                   ),
-                ),
-                const SizedBox(width: AppSizes.s),
-              ],
-              GestureDetector(
-                onTap: isFetching ? null : onActionTap,
-                child: Icon(
-                  actionIcon,
-                  color: AppColors.textMedium,
-                  size: AppSizes.iconMedium,
                 ),
               ),
             ],
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoNotice(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSizes.l),
-      decoration: BoxDecoration(
-        color: AppColors.primaryGreen.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(AppSizes.radiusLarge),
-        border: Border.all(
-          color: AppColors.primaryGreen.withValues(alpha: 0.15),
-          width: 1.5,
         ),
-      ),
-      child: const Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            Icons.wb_sunny_outlined,
-            color: AppColors.primaryGreen,
-            size: AppSizes.iconLarge,
-          ),
-          SizedBox(width: AppSizes.m),
-          Expanded(
-            child: Text(
-              'Climate data (temperature, humidity, rainfall) will be automatically fetched from NASA POWER 2025 API based on your selected location and season.',
-              style: TextStyle(
-                color: AppColors.textMedium,
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                height: 1.4,
-              ),
-            ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 
-  Widget _buildFooterButton(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(AppSizes.xl),
-      child: PrimaryButton(
-        text: 'Predict Crop',
-        icon: Icons.eco_outlined,
-        isLoading: widget.controller.isLoading,
-        onPressed: () async {
-          await widget.controller.predictCrop();
-          if (context.mounted && widget.controller.predictionResult != null) {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => PredictCropResultScreen(
-                  controller: widget.controller,
-                  result: widget.controller.predictionResult!,
+  Widget _buildPhSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Soil pH',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textDark,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFE0F7FA),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.science_rounded,
+                  color: Color(0xFF00ACC1),
+                  size: 18,
                 ),
               ),
-            );
-          } else if (context.mounted &&
-              widget.controller.errorMessage != null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(widget.controller.errorMessage!)),
-            );
-          }
-        },
-      ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextFormField(
+                  controller: _phController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                  ],
+                  onChanged: widget.controller.setPh,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: AppColors.textDark,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  decoration: const InputDecoration(
+                    hintText: 'e.g., 6.5',
+                    hintStyle: TextStyle(
+                      color: AppColors.textLight,
+                      fontSize: 14,
+                    ),
+                    border: InputBorder.none,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'Optimal range: 6.0 – 7.0',
+          style: TextStyle(
+            fontSize: 11,
+            color: AppColors.textLight,
+          ),
+        ),
+      ],
     );
   }
 
-  void _showInfoDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('About Crop Prediction'),
-        content: const Text(
-          'This tool predicts the most suitable crop to grow based on soil nutrients '
-          '(Nitrogen, Phosphorus, Potassium) and climatic parameters (Temperature, Rainfall, pH).',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Got it'),
-          ),
-        ],
-      ),
-    );
+  String? _validateInputs() {
+    final n = widget.controller.nitrogen;
+    final p = widget.controller.phosphorus;
+    final k = widget.controller.potassium;
+    final ph = widget.controller.ph;
+
+    if (n < 10 || n > 130) {
+      return 'Nitrogen (N) must be between 10 and 130 kg/ha.';
+    }
+    if (p < 10 || p > 140) {
+      return 'Phosphorus (P) must be between 10 and 140 kg/ha.';
+    }
+    if (k < 10 || k > 200) {
+      return 'Potassium (K) must be between 10 and 200 kg/ha.';
+    }
+    if (ph < 4 || ph > 9) {
+      return 'Soil pH must be between 4 and 9.';
+    }
+    return null;
   }
 
-  void _showPhEditDialog(BuildContext context) {
-    final textController = TextEditingController(
-      text: widget.controller.ph.toString(),
-    );
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit Soil pH'),
-        content: TextField(
-          controller: textController,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(labelText: 'Soil pH (0.0 - 14.0)'),
+  Widget _buildSubmitButton(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primaryGreen,
+          foregroundColor: Colors.white,
+          elevation: 2,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              widget.controller.setPh(textController.text);
-              Navigator.of(context).pop();
-            },
-            child: const Text('Save'),
-          ),
-        ],
+        onPressed: widget.controller.isLoading
+            ? null
+            : () async {
+                final validationError = _validateInputs();
+                if (validationError != null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(validationError),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+
+                await widget.controller.predictCrop();
+                if (context.mounted && widget.controller.predictionResult != null) {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => PredictCropResultScreen(
+                        controller: widget.controller,
+                        result: widget.controller.predictionResult!,
+                      ),
+                    ),
+                  );
+                } else if (context.mounted && widget.controller.errorMessage != null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(widget.controller.errorMessage!)),
+                  );
+                }
+              },
+        child: widget.controller.isLoading
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : const Text(
+              'Get Crop Recommendation',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
       ),
     );
   }

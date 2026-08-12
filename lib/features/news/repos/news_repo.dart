@@ -206,23 +206,7 @@ class HttpNewsRepo implements NewsRepo {
 
   @override
   Future<List<NewsArticleModel>> getAdminNewsList({String? token}) async {
-    // 1. Fetch news feed /api/news/ with admin token
-    try {
-      final farmerNews = await getFarmerNewsFeed(token: token);
-      if (farmerNews.isNotEmpty) {
-        return farmerNews;
-      }
-    } catch (_) {}
-
-    // 2. Fetch news feed /api/news/ without token (public request)
-    try {
-      final farmerNewsNoToken = await getFarmerNewsFeed(token: null);
-      if (farmerNewsNoToken.isNotEmpty) {
-        return farmerNewsNoToken;
-      }
-    } catch (_) {}
-
-    // 3. Fallback to admin endpoint /api/admin/news/
+    // 1. Primary admin endpoint /api/admin/news/
     try {
       final response = await http
           .get(Uri.parse(ApiEndpoints.adminNews), headers: _headers(token))
@@ -237,6 +221,32 @@ class HttpNewsRepo implements NewsRepo {
           list = (decoded['results'] as List?) ?? (decoded['articles'] as List?) ?? [];
         }
         return list.map((item) => NewsArticleModel.fromJson(item as Map<String, dynamic>)).toList();
+      }
+    } catch (_) {}
+
+    // 2. Try minimal ngrok header for admin endpoint
+    try {
+      final response = await http
+          .get(Uri.parse(ApiEndpoints.adminNews), headers: {'ngrok-skip-browser-warning': 'true'})
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        List list = [];
+        if (decoded is List) {
+          list = decoded;
+        } else if (decoded is Map<String, dynamic>) {
+          list = (decoded['results'] as List?) ?? (decoded['articles'] as List?) ?? [];
+        }
+        return list.map((item) => NewsArticleModel.fromJson(item as Map<String, dynamic>)).toList();
+      }
+    } catch (_) {}
+
+    // 3. Fallback to public news feed /api/news/ if admin endpoint fails
+    try {
+      final farmerNews = await getFarmerNewsFeed(token: token);
+      if (farmerNews.isNotEmpty) {
+        return farmerNews;
       }
     } catch (_) {}
 

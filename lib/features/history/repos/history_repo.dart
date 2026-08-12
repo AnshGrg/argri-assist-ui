@@ -106,11 +106,7 @@ class HttpHistoryRepo implements HistoryRepo {
       return 0;
     });
 
-    if (combined.isNotEmpty) {
-      return combined;
-    }
-
-    return MockDatabase.historyList;
+    return combined;
   }
 
   @override

@@ -246,6 +246,7 @@ class _AdminNewsScreenState extends State<AdminNewsScreen> {
         builder: (context) => NewsDetailScreen(
           initialArticle: article,
           controller: widget.controller,
+          isAdmin: true,
         ),
       ),
     );

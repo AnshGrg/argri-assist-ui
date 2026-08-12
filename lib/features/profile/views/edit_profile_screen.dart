@@ -1,8 +1,6 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_sizes.dart';
-import '../../../core/widgets/glass_card.dart';
 import '../../../core/widgets/primary_button.dart';
 import '../../predict/controllers/predict_controller.dart';
 import '../controllers/profile_controller.dart';
@@ -10,8 +8,17 @@ import '../models/user_profile_update_model.dart';
 
 class EditProfileScreen extends StatefulWidget {
   final ProfileController controller;
+  final String initialFullName;
+  final String initialEmail;
+  final String initialCity;
 
-  const EditProfileScreen({super.key, required this.controller});
+  const EditProfileScreen({
+    super.key,
+    required this.controller,
+    this.initialFullName = '',
+    this.initialEmail = '',
+    this.initialCity = '',
+  });
 
   @override
   State<EditProfileScreen> createState() => _EditProfileScreenState();
@@ -19,73 +26,84 @@ class EditProfileScreen extends StatefulWidget {
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _firstNameController = TextEditingController();
-  final TextEditingController _lastNameController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _phoneController = TextEditingController();
+  late final TextEditingController _fullNameController;
+  late final TextEditingController _emailController;
 
   LocationOption? _selectedCity;
-  bool _hasInitializedFields = false;
 
   @override
   void initState() {
     super.initState();
+    _fullNameController = TextEditingController(text: widget.initialFullName);
+    _emailController = TextEditingController(text: widget.initialEmail);
+
+    _initCity(widget.initialCity);
+
     _fetchAndPopulate();
   }
 
-  Future<void> _fetchAndPopulate() async {
-    if (widget.controller.userProfile == null) {
-      await widget.controller.fetchUserProfile();
-    }
-    if (mounted) {
-      _updateFieldsFromController();
+  void _initCity(String cityStr) {
+    final cleanCity = cityStr.toLowerCase().trim();
+    if (cleanCity.isNotEmpty) {
+      _selectedCity = PredictController.locationOptions.firstWhere(
+        (loc) =>
+            loc.name.toLowerCase() == cleanCity ||
+            loc.displayName.toLowerCase() == cleanCity ||
+            cleanCity.contains(loc.name.toLowerCase()),
+        orElse: () => PredictController.locationOptions.first,
+      );
+    } else {
+      _selectedCity = PredictController.locationOptions.first;
     }
   }
 
-  void _updateFieldsFromController() {
-    final profile = widget.controller.userProfile;
-    if (profile != null) {
-      _firstNameController.text = profile.firstName;
-      _lastNameController.text = profile.lastName;
-      _emailController.text = profile.email;
-      _phoneController.text = profile.profile?.phoneNumber ?? '';
-
-      final existingCityStr = profile.profile?.city?.toLowerCase().trim();
-      if (existingCityStr != null && existingCityStr.isNotEmpty) {
-        _selectedCity = PredictController.locationOptions.firstWhere(
-          (loc) =>
-              loc.name.toLowerCase() == existingCityStr ||
-              loc.displayName.toLowerCase() == existingCityStr ||
-              existingCityStr.contains(loc.name.toLowerCase()),
-          orElse: () => PredictController.locationOptions.first,
-        );
-      } else {
-        _selectedCity = PredictController.locationOptions.first;
+  Future<void> _fetchAndPopulate() async {
+    await widget.controller.fetchUserProfile();
+    if (mounted) {
+      final profile = widget.controller.userProfile;
+      if (profile != null) {
+        setState(() {
+          if (_fullNameController.text.isEmpty && profile.fullName.isNotEmpty) {
+            _fullNameController.text = profile.fullName;
+          }
+          if (_emailController.text.isEmpty && profile.email.isNotEmpty) {
+            _emailController.text = profile.email;
+          }
+          if (profile.profile?.city != null &&
+              profile.profile!.city!.isNotEmpty) {
+            _initCity(profile.profile!.city!);
+          }
+        });
       }
-      _hasInitializedFields = true;
     }
   }
 
   @override
   void dispose() {
-    _firstNameController.dispose();
-    _lastNameController.dispose();
+    _fullNameController.dispose();
     _emailController.dispose();
-    _phoneController.dispose();
     super.dispose();
   }
 
   Future<void> _handleSave() async {
     if (_formKey.currentState?.validate() ?? false) {
+      final rawName = _fullNameController.text.trim();
+      final nameParts = rawName.split(' ');
+      final firstName = nameParts.isNotEmpty ? nameParts.first : '';
+      final lastName = nameParts.length > 1
+          ? nameParts.sublist(1).join(' ')
+          : '';
+
       final request = UserProfileUpdateModel(
-        firstName: _firstNameController.text.trim(),
-        lastName: _lastNameController.text.trim(),
+        firstName: firstName,
+        lastName: lastName,
         email: _emailController.text.trim(),
-        phoneNumber: _phoneController.text.trim(),
         city: _selectedCity?.name ?? '',
       );
 
+      debugPrint('[EditProfile] Saving: ${request.toJson()}');
       final success = await widget.controller.updateProfile(request);
+      debugPrint('[EditProfile] Update result: $success, error: ${widget.controller.errorMessage}');
       if (success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -95,124 +113,135 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         );
         Navigator.of(context).pop();
       }
+    } else {
+      debugPrint('[EditProfile] Form validation failed');
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          // Background Image
-          Positioned.fill(
-            child: Image.asset(
-              'assets/images/background.jpg',
-              fit: BoxFit.cover,
-            ),
-          ),
-          // Blur Filter & Translucent Overlay
-          Positioned.fill(
-            child: ClipRect(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 40.0, sigmaY: 40.0),
-                child: Container(
-                  color: AppColors.backgroundGreen.withValues(alpha: 0.65),
-                ),
-              ),
-            ),
-          ),
-          // Content
-          SafeArea(
-            child: AnimatedBuilder(
-              animation: widget.controller,
-              builder: (context, _) {
-                if (!_hasInitializedFields && widget.controller.userProfile != null) {
-                  _updateFieldsFromController();
-                }
-
-                return Column(
-                  children: [
-                    _buildAppBar(context),
-                    Expanded(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(AppSizes.xl),
-                        child: Center(
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 450),
-                            child: Form(
-                              key: _formKey,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (widget.controller.errorMessage != null) ...[
-                                    _buildErrorCard(widget.controller.errorMessage!),
-                                    AppSizes.spaceM,
-                                  ],
-                                  _buildFormCard(context),
-                                  AppSizes.spaceXl,
-                                  PrimaryButton(
-                                    text: widget.controller.isLoading ? 'Saving...' : 'Save Changes',
-                                    onPressed: () => _handleSave(),
-                                    isLoading: widget.controller.isLoading,
-                                  ),
-                                ],
+      backgroundColor: const Color(0xFFEDF7EE),
+      body: SafeArea(
+        child: AnimatedBuilder(
+          animation: widget.controller,
+          builder: (context, _) {
+            return Column(
+              children: [
+                _buildAppBar(context),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 8,
+                    ),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 450),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (widget.controller.errorMessage != null) ...[
+                                _buildErrorCard(
+                                  widget.controller.errorMessage!,
+                                ),
+                                AppSizes.spaceM,
+                              ],
+                              _buildFormCard(context),
+                              AppSizes.spaceXl,
+                              PrimaryButton(
+                                text: widget.controller.isLoading
+                                    ? 'Saving...'
+                                    : 'Save Changes',
+                                onPressed: () => _handleSave(),
+                                isLoading: widget.controller.isLoading,
                               ),
-                            ),
+                            ],
                           ),
                         ),
                       ),
                     ),
-                  ],
-                );
-              },
-            ),
-          ),
-        ],
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
 
   Widget _buildAppBar(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSizes.l,
-        vertical: AppSizes.s,
-      ),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          IconButton(
-            icon: const Icon(
-              Icons.chevron_left_rounded,
-              size: AppSizes.iconExtraLarge,
+          GestureDetector(
+            onTap: () {
+              if (Navigator.canPop(context)) {
+                Navigator.of(context).pop();
+              }
+            },
+            child: Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.chevron_left_rounded,
+                color: AppColors.textDark,
+                size: 24,
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          const Text(
+            'Edit Profile',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
               color: AppColors.textDark,
             ),
-            onPressed: () => Navigator.of(context).pop(),
           ),
-          Text(
-            'Edit Profile',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textDark,
-                ),
-          ),
-          const SizedBox(width: 48),
         ],
       ),
     );
   }
 
   Widget _buildErrorCard(String error) {
-    return GlassCard(
+    return Container(
       padding: const EdgeInsets.all(AppSizes.m),
+      decoration: BoxDecoration(
+        color: Colors.red.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(AppSizes.radiusMedium),
+        border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+      ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline_rounded, color: Colors.red, size: AppSizes.iconMedium),
+          const Icon(
+            Icons.error_outline_rounded,
+            color: Colors.red,
+            size: AppSizes.iconMedium,
+          ),
           AppSizes.spaceM,
           Expanded(
             child: Text(
               error,
-              style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w500),
+              style: const TextStyle(
+                color: Colors.red,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ],
@@ -221,21 +250,33 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Widget _buildFormCard(BuildContext context) {
-    return GlassCard(
+    return Container(
       padding: const EdgeInsets.all(AppSizes.l),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFA8E0B5), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildTextField(
-            label: 'First Name',
-            controller: _firstNameController,
+            label: 'Full Name',
+            controller: _fullNameController,
             icon: Icons.person_outline_rounded,
-          ),
-          AppSizes.spaceM,
-          _buildTextField(
-            label: 'Last Name',
-            controller: _lastNameController,
-            icon: Icons.person_outline_rounded,
+            validator: (val) {
+              if (val == null || val.trim().isEmpty) {
+                return 'Full Name is required';
+              }
+              return null;
+            },
           ),
           AppSizes.spaceM,
           _buildTextField(
@@ -243,22 +284,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             controller: _emailController,
             icon: Icons.email_outlined,
             keyboardType: TextInputType.emailAddress,
-            validator: (val) {
-              if (val == null || val.trim().isEmpty) {
-                return 'Email is required';
-              }
-              if (!val.contains('@')) {
-                return 'Please enter a valid email address';
-              }
-              return null;
-            },
-          ),
-          AppSizes.spaceM,
-          _buildTextField(
-            label: 'Phone Number',
-            controller: _phoneController,
-            icon: Icons.phone_outlined,
-            keyboardType: TextInputType.phone,
+            readOnly: true,
           ),
           AppSizes.spaceM,
           // City / District Selection Dropdown
@@ -268,16 +294,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               Text(
                 'City / Location',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textDark,
-                    ),
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textDark,
+                ),
               ),
               AppSizes.spaceS,
               DropdownButtonFormField<LocationOption>(
                 key: ValueKey(_selectedCity?.displayName ?? 'city_dropdown'),
                 initialValue: _selectedCity,
                 decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.location_city_outlined, color: AppColors.primaryGreen),
+                  prefixIcon: const Icon(
+                    Icons.location_city_outlined,
+                    color: AppColors.primaryGreen,
+                  ),
                   filled: true,
                   fillColor: AppColors.white.withValues(alpha: 0.8),
                   border: OutlineInputBorder(
@@ -297,19 +326,22 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   }
                 },
                 items: PredictController.locationOptions
-                    .map<DropdownMenuItem<LocationOption>>((LocationOption loc) {
-                  return DropdownMenuItem<LocationOption>(
-                    value: loc,
-                    child: Text(
-                      loc.displayName,
-                      style: const TextStyle(
-                        color: AppColors.textDark,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  );
-                }).toList(),
+                    .map<DropdownMenuItem<LocationOption>>((
+                      LocationOption loc,
+                    ) {
+                      return DropdownMenuItem<LocationOption>(
+                        value: loc,
+                        child: Text(
+                          loc.displayName,
+                          style: const TextStyle(
+                            color: AppColors.textDark,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      );
+                    })
+                    .toList(),
               ),
             ],
           ),
@@ -324,6 +356,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     required IconData icon,
     TextInputType? keyboardType,
     String? hint,
+    bool readOnly = false,
     String? Function(String?)? validator,
   }) {
     return Column(
@@ -332,20 +365,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         Text(
           label,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: AppColors.textDark,
-              ),
+            fontWeight: FontWeight.bold,
+            color: AppColors.textDark,
+          ),
         ),
         AppSizes.spaceS,
         TextFormField(
           controller: controller,
           keyboardType: keyboardType,
+          readOnly: readOnly,
           validator: validator,
           decoration: InputDecoration(
             hintText: hint,
             prefixIcon: Icon(icon, color: AppColors.primaryGreen),
             filled: true,
-            fillColor: AppColors.white.withValues(alpha: 0.8),
+            fillColor: readOnly
+                ? Colors.grey.shade100
+                : AppColors.white.withValues(alpha: 0.8),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppSizes.radiusMedium),
               borderSide: BorderSide.none,

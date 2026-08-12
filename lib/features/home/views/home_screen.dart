@@ -1,8 +1,6 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_sizes.dart';
-import '../../../core/widgets/glass_card.dart';
 import '../controllers/home_controller.dart';
 import '../models/prediction_history_model.dart';
 import '../models/weather_model.dart';
@@ -26,6 +24,8 @@ import '../../news/controllers/news_controller.dart';
 import '../../news/repos/news_repo.dart';
 import '../../news/repos/subscription_repo.dart';
 import '../../news/views/news_feed_screen.dart';
+import '../../../core/utils/string_utils.dart';
+import 'dart:ui';
 
 class HomeScreen extends StatefulWidget {
   final HomeController controller;
@@ -53,26 +53,35 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   String? get _userToken => _authController.tokens?.access;
 
+
+  String get _greetingText {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _authController = widget.authController ??
-        AuthController(authRepo: HttpAuthRepo());
-    _notificationController = widget.notificationController ??
+    _authController =
+        widget.authController ?? AuthController(authRepo: HttpAuthRepo());
+    _notificationController =
+        widget.notificationController ??
         NotificationController(
           notificationRepo: HttpNotificationRepo(),
           userToken: _userToken,
           onNewNotifications: _showNewNotificationToast,
         );
-    _newsController = widget.newsController ??
+    _newsController =
+        widget.newsController ??
         NewsController(
           newsRepo: HttpNewsRepo(),
           subscriptionRepo: HttpSubscriptionRepo(),
           userToken: _userToken,
         );
 
-    // Fetch initial dashboard data & start periodic notification polling
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       widget.controller.loadDashboardData();
       _notificationController.startPolling(
@@ -97,9 +106,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         : 'You have $unreadCount unread notifications';
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
+        duration: const Duration(seconds: 2),
         content: Row(
           children: [
-            const Icon(Icons.notifications_active, color: Colors.white, size: 20),
+            const Icon(
+              Icons.notifications_active,
+              color: Colors.white,
+              size: 20,
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -116,7 +130,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.only(top: 16, left: 16, right: 16, bottom: 16),
-        duration: const Duration(seconds: 4),
         action: SnackBarAction(
           label: 'View',
           textColor: Colors.white,
@@ -124,9 +137,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => NotificationListScreen(
-                  controller: _notificationController,
-                ),
+                builder: (_) =>
+                    NotificationListScreen(controller: _notificationController),
               ),
             );
           },
@@ -143,7 +155,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           interval: const Duration(seconds: 90),
         );
       } else {
-        _notificationController.fetchUnreadCount(); // Will stop timer and clear count
+        _notificationController.fetchUnreadCount();
       }
     }
   }
@@ -158,6 +170,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFEDF7EE),
       body: _buildBody(),
       bottomNavigationBar: _buildBottomNavigationBar(context),
     );
@@ -166,22 +179,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Widget _buildBody() {
     switch (_currentNavigationIndex) {
       case 1:
-        return PredictCropScreen(
-          controller: PredictController(
-            predictRepo: HttpPredictRepo(),
-            userToken: _userToken,
-          ),
+        return HistoryScreen(
+          controller: HistoryController(userToken: _userToken),
         );
       case 2:
-        return HistoryScreen(
-          controller: HistoryController(
-            userToken: _userToken,
-          ),
-        );
-      case 3:
-        return ProfileScreen(
-          authController: _authController,
-        );
+        return ProfileScreen(authController: _authController);
       case 0:
       default:
         return _buildDashboardContent();
@@ -189,392 +191,622 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildDashboardContent() {
-    return Stack(
-      children: [
-        // Background Image
-        Positioned.fill(
-          child: Image.asset(
-            'assets/images/background.jpg',
-            fit: BoxFit.cover,
-          ),
-        ),
-        // Blur Filter & Translucent Overlay
-        Positioned.fill(
-          child: ClipRect(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 40.0, sigmaY: 40.0),
-              child: Container(
-                color: AppColors.backgroundGreen.withValues(alpha: 0.65),
+    return SafeArea(
+      child: AnimatedBuilder(
+        animation: widget.controller,
+        builder: (context, _) {
+          if (widget.controller.isLoading) {
+            return const Center(
+              child: CircularProgressIndicator(color: AppColors.primaryGreen),
+            );
+          }
+
+          if (widget.controller.errorMessage != null) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    widget.controller.errorMessage!,
+                    style: const TextStyle(
+                      color: AppColors.textDark,
+                      fontSize: 14,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton(
+                    onPressed: widget.controller.loadDashboardData,
+                    child: const Text('Retry'),
+                  ),
+                ],
               ),
-            ),
-          ),
-        ),
-        // Scrollable UI
-        SafeArea(
-          child: AnimatedBuilder(
-            animation: widget.controller,
-            builder: (context, _) {
-              if (widget.controller.isLoading) {
-                return const Center(
-                  child: CircularProgressIndicator(
-                    color: AppColors.primaryGreen,
-                  ),
-                );
-              }
+            );
+          }
 
-              if (widget.controller.errorMessage != null) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        widget.controller.errorMessage!,
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                              color: Colors.red,
-                            ),
-                        textAlign: TextAlign.center,
-                      ),
-                      AppSizes.spaceM,
-                      ElevatedButton(
-                        onPressed: widget.controller.loadDashboardData,
-                        child: const Text('Retry'),
-                      ),
-                    ],
-                  ),
-                );
-              }
+          final weather = widget.controller.weather;
+          final history = widget.controller.historyList;
 
-              final weather = widget.controller.weather;
-              final history = widget.controller.historyList;
-
-              return SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSizes.xl,
-                  vertical: AppSizes.l,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildHeader(context),
-                    AppSizes.spaceXl,
-                    if (weather != null) _buildWeatherCard(context, weather),
-                    AppSizes.spaceXl,
-                    _buildActionHeading(context),
-                    AppSizes.spaceM,
-                    _buildActionCards(context),
-                    AppSizes.spaceL,
-                    _buildNewsCardBanner(context),
-                    AppSizes.spaceXl,
-                    _buildHistoryHeader(context),
-
-                    AppSizes.spaceM,
-                    _buildHistoryList(context, history),
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildHeader(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Good morning,',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: AppColors.textMedium,
-                    fontWeight: FontWeight.w400,
-                  ),
-            ),
-            Row(
+          return SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  _authController.tokens?.username ?? 'Farmer',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        color: AppColors.textDark,
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-                const SizedBox(width: AppSizes.s),
-                const Text(
-                  '👋',
-                  style: TextStyle(fontSize: 24),
-                ),
+                _buildHeader(context),
+                const SizedBox(height: 18),
+                if (weather != null) _buildWeatherCard(context, weather),
+                const SizedBox(height: 24),
+                _buildPredictionSection(context),
+                const SizedBox(height: 24),
+                if (history.isNotEmpty) ...[
+                  _buildRecentActivity(context, history),
+                  const SizedBox(height: 24),
+                ],
+                _buildNewsCardBanner(context),
+                const SizedBox(height: 16),
               ],
             ),
-          ],
-        ),
-        Row(
-          children: [
-            AnimatedBuilder(
-              animation: _notificationController,
-              builder: (context, _) {
-                final unread = _notificationController.unreadCount;
-                return Stack(
-                  children: [
-                    IconButton(
-                      icon: const Icon(
-                        Icons.notifications_none_rounded,
-                        size: AppSizes.iconLarge,
-                        color: AppColors.primaryGreen,
-                      ),
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => NotificationListScreen(
-                              controller: _notificationController,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    if (unread > 0)
-                      Positioned(
-                        right: 8,
-                        top: 8,
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(
-                            color: AppColors.notificationDot,
-                            shape: BoxShape.circle,
-                          ),
-                          constraints: const BoxConstraints(
-                            minWidth: 16,
-                            minHeight: 16,
-                          ),
-                          child: Center(
-                            child: Text(
-                              '$unread',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                );
-              },
-            ),
-
-          ],
-        ),
-      ],
+          );
+        },
+      ),
     );
   }
 
-  Widget _buildWeatherCard(BuildContext context, WeatherModel weather) {
-    return GlassCard(
-      padding: const EdgeInsets.all(AppSizes.l),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // Left portion
-          Row(
+  // ─── Header ───────────────────────────────────────────────────────────────
+
+  Widget _buildHeader(BuildContext context) {
+    final rawUsername = _authController.tokens?.username ?? 'Farmer';
+    final formattedUsername = StringUtils.formatUsername(rawUsername);
+    final username = formattedUsername.isNotEmpty ? formattedUsername : 'Farmer';
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Weather icon
-              Container(
-                padding: const EdgeInsets.all(AppSizes.s),
-                decoration: BoxDecoration(
-                  color: AppColors.white.withValues(alpha: 0.4),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.wb_sunny_rounded, // or cloud with sun if custom asset exists
-                  color: Colors.amber,
-                  size: AppSizes.iconLarge,
-                ),
-              ),
-              AppSizes.spaceM,
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${weather.temperature.toInt()}°C',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          color: AppColors.textDark,
-                          fontWeight: FontWeight.w600,
-                        ),
+                    _greetingText,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.normal,
+                      color: AppColors.textDark,
+                    ),
                   ),
+                  const SizedBox(height: 2),
                   Text(
-                    weather.condition,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.textMedium,
-                        ),
+                    username,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textDark,
+                    ),
                   ),
                 ],
               ),
             ],
           ),
-          // Right portion
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+        ),
+        const SizedBox(width: 12),
+        // Notification bell icon with unread badge
+        AnimatedBuilder(
+          animation: _notificationController,
+          builder: (context, _) {
+            final unread = _notificationController.unreadCount;
+            return Stack(
+              children: [
+                GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => NotificationListScreen(
+                          controller: _notificationController,
+                        ),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Center(
+                      child: Icon(
+                        Icons.notifications_outlined,
+                        color: AppColors.primaryGreen,
+                        size: 24,
+                      ),
+                    ),
+                  ),
+                ),
+                if (unread > 0)
+                  Positioned(
+                    right: 0,
+                    top: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: const BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 16,
+                        minHeight: 16,
+                      ),
+                      child: Center(
+                        child: Text(
+                          '$unread',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  // ─── Weather Card ─────────────────────────────────────────────────────────
+
+  Widget _buildWeatherCard(BuildContext context, WeatherModel weather) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(22),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: const Color(0xFFD9EFD9).withValues(alpha: 0.7),
+            border: Border.all(color: Colors.white, width: 1.5),
+            borderRadius: BorderRadius.circular(22),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                weather.location,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.textDark,
-                      fontWeight: FontWeight.w500,
+              // Top row: location + icon
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          weather.location,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.textMedium,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          '${weather.temperature.toInt()}°C',
+                          style: const TextStyle(
+                            fontSize: 40,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textDark,
+                            height: 1.0,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          weather.condition,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            color: AppColors.textMedium,
+                          ),
+                        ),
+                      ],
                     ),
+                  ),
+                  SvgPicture.asset(
+                    weather.iconPath,
+                    width: 72,
+                    height: 72,
+                    placeholderBuilder: (_) => const Icon(
+                      Icons.wb_sunny_rounded,
+                      color: Colors.amber,
+                      size: 56,
+                    ),
+                  ),
+                ],
               ),
-              Text(
-                'Humidity ${weather.humidity.toInt()}%',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textMedium,
+              const SizedBox(height: 16),
+              // Bottom row: 3 metric mini cards
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildWeatherMiniCard(
+                      icon: Icons.water_drop_outlined,
+                      iconColor: const Color(0xFF29B6F6),
+                      value: '${weather.humidity.toInt()}%',
+                      label: 'Humidity',
                     ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildWeatherMiniCard(
+                      icon: Icons.air_rounded,
+                      iconColor: const Color(0xFF42A5F5),
+                      value: '12 km/h',
+                      label: 'Wind',
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildWeatherMiniCard(
+                      icon: Icons.wb_sunny_outlined,
+                      iconColor: const Color(0xFFFFB300),
+                      value: 'Moderate',
+                      label: 'UV Index',
+                    ),
+                  ),
+                ],
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWeatherMiniCard({
+    required IconData icon,
+    required Color iconColor,
+    required String value,
+    required String label,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: iconColor, size: 22),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textDark,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 11, color: AppColors.textLight),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildActionHeading(BuildContext context) {
-    return Text(
-      'What would you like to do?',
-      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+  // ─── Prediction Cards ─────────────────────────────────────────────────────
+
+  Widget _buildPredictionSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'What would you like to do?',
+          style: TextStyle(
+            fontSize: 17,
             fontWeight: FontWeight.bold,
             color: AppColors.textDark,
           ),
-    );
-  }
-
-  Widget _buildActionCards(BuildContext context) {
-    final double cardWidth = (MediaQuery.of(context).size.width - (AppSizes.xl * 2) - AppSizes.m) / 2;
-
-    return Row(
-      children: [
-        _buildActionCard(
-          context: context,
-          width: cardWidth,
-          title: 'Predict\nCrop',
-          icon: Icons.eco_outlined,
-          gradient: AppColors.cropCardGradient,
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => PredictCropScreen(
-                  controller: PredictController(
-                    predictRepo: HttpPredictRepo(),
-                    userToken: _userToken,
-                  ),
-                ),
-              ),
-            );
-          },
         ),
-        AppSizes.spaceM,
-        _buildActionCard(
-          context: context,
-          width: cardWidth,
-          title: 'Predict\nFertilizer',
-          icon: Icons.shopping_bag_outlined, // bag icon
-          gradient: AppColors.fertilizerCardGradient,
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => PredictFertilizerScreen(
-                  controller: FertilizerController(
-                    fertilizerRepo: HttpFertilizerRepo(),
-                    userToken: _userToken,
+        const SizedBox(height: 14),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Crop Prediction – Green filled card
+            Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => PredictCropScreen(
+                        controller: PredictController(
+                          predictRepo: HttpPredictRepo(),
+                          userToken: _userToken,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                    child: Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            const Color(0xFFA8D5BA).withValues(alpha: 0.6),
+                            const Color(0xFF2D9B4A).withValues(alpha: 0.5),
+                          ],
+                        ),
+                        border: Border.all(color: Colors.white, width: 1.5),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.8),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(
+                              Icons.grass_rounded,
+                              color: Colors.amber,
+                              size: 26,
+                            ),
+                          ),
+                          const SizedBox(height: 52),
+                          const Text(
+                            'Crop\nPrediction',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF082819),
+                              height: 1.25,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Analyze soil &\nrecommend crops',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF082819),
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ).then((_) {
-              widget.controller.loadDashboardData();
-            });
-          },
+            ),
+            const SizedBox(width: 12),
+            // Fertilizer Prediction – White card
+            Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  Navigator.of(context)
+                      .push(
+                        MaterialPageRoute(
+                          builder: (_) => PredictFertilizerScreen(
+                            controller: FertilizerController(
+                              fertilizerRepo: HttpFertilizerRepo(),
+                              userToken: _userToken,
+                            ),
+                          ),
+                        ),
+                      )
+                      .then((_) => widget.controller.loadDashboardData());
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: const Color(0xFFE0F0E0),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE8F5E9),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.science_rounded,
+                          color: Color(0xFF26C6DA),
+                          size: 26,
+                        ),
+                      ),
+                      const SizedBox(height: 52),
+                      const Text(
+                        'Fertilizer\nPrediction',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textDark,
+                          height: 1.25,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Get nutrient\nrecommendations',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textMedium,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
   }
 
-  Widget _buildActionCard({
-    required BuildContext context,
-    required double width,
-    required String title,
-    required IconData icon,
-    required List<Color> gradient,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: width,
-        height: 180,
-        padding: const EdgeInsets.all(AppSizes.l),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(AppSizes.radiusExtraLarge),
-          gradient: LinearGradient(
-            colors: gradient,
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: gradient.last.withValues(alpha: 0.3),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+  // ─── Recent Activity ──────────────────────────────────────────────────────
+
+  Widget _buildRecentActivity(
+    BuildContext context,
+    List<PredictionHistoryModel> history,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Recent Activity',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textDark,
+              ),
+            ),
+            GestureDetector(
+              onTap: () => setState(() => _currentNavigationIndex = 1),
+              child: const Text(
+                'See all',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primaryGreen,
+                ),
+              ),
             ),
           ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        const SizedBox(height: 12),
+        if (history.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFE8F0E8), width: 1),
+            ),
+            child: const Text(
+              'No recent activity yet.',
+              style: TextStyle(fontSize: 13, color: AppColors.textMedium),
+              textAlign: TextAlign.center,
+            ),
+          )
+        else
+          ...history
+              .take(4)
+              .map(
+                (item) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _buildRecentHistoryItem(context, item),
+                ),
+              ),
+      ],
+    );
+  }
+
+  Widget _buildRecentHistoryItem(
+    BuildContext context,
+    PredictionHistoryModel item,
+  ) {
+    IconData icon = Icons.eco;
+    if (item.cropName.toLowerCase() == 'wheat') {
+      icon = Icons.grain;
+    } else if (item.cropName.toLowerCase() == 'maize') {
+      icon = Icons.grass;
+    }
+
+    return GestureDetector(
+      onTap: () {
+        final fullItem = MockDatabase.historyList.firstWhere(
+          (e) => e.id == item.id,
+          orElse: () => MockDatabase.historyList.first,
+        );
+        Navigator.of(context)
+            .push(
+              MaterialPageRoute(
+                builder: (_) => PredictionDetailsScreen(item: fullItem),
+              ),
+            )
+            .then((_) => widget.controller.loadDashboardData());
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE8F0E8), width: 1),
+        ),
+        child: Row(
           children: [
-            // Icon Container
             Container(
-              padding: const EdgeInsets.all(AppSizes.s),
-              decoration: BoxDecoration(
-                color: AppColors.white.withValues(alpha: 0.2),
+              width: 40,
+              height: 40,
+              decoration: const BoxDecoration(
+                color: Color(0xFFE8F5E9),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
-                icon,
-                color: AppColors.white,
-                size: AppSizes.iconLarge,
+              child: Icon(icon, color: AppColors.primaryGreen, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.cropName,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                  Text(
+                    item.date,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppColors.textLight,
+                    ),
+                  ),
+                ],
               ),
             ),
-            // Title & Next Button Row
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Expanded(
-                  child: Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: AppColors.white,
-                          fontWeight: FontWeight.bold,
-                          height: 1.2,
-                        ),
-                  ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE8F5E9),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                item.recommendation,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primaryGreen,
                 ),
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: const BoxDecoration(
-                    color: AppColors.white,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.chevron_right_rounded,
-                    color: AppColors.primaryGreen,
-                    size: 20,
-                  ),
-                ),
-              ],
+              ),
             ),
           ],
         ),
@@ -582,49 +814,58 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
+  // ─── News Banner ──────────────────────────────────────────────────────────
+
   Widget _buildNewsCardBanner(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.all(AppSizes.l),
-      child: InkWell(
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => NewsFeedScreen(controller: _newsController),
-            ),
-          );
-        },
+    return GestureDetector(
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => NewsFeedScreen(controller: _newsController),
+          ),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFE8F0E8), width: 1),
+        ),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(AppSizes.m),
-              decoration: BoxDecoration(
-                color: AppColors.primaryGreen.withValues(alpha: 0.15),
+              padding: const EdgeInsets.all(10),
+              decoration: const BoxDecoration(
+                color: Color(0xFFE8F5E9),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.newspaper_rounded,
                 color: AppColors.primaryGreen,
-                size: AppSizes.iconLarge,
+                size: 22,
               ),
             ),
-            AppSizes.spaceM,
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  const Text(
                     'Agri News & Advisories',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textDark,
-                        ),
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textDark,
+                    ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
                   Text(
-                    'Pest warnings, weather advisories & government subsidy notices.',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.textMedium,
-                        ),
+                    'Pest warnings, weather advisories & govt subsidies.',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppColors.textMedium,
+                    ),
                   ),
                 ],
               ),
@@ -632,6 +873,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             const Icon(
               Icons.chevron_right_rounded,
               color: AppColors.primaryGreen,
+              size: 22,
             ),
           ],
         ),
@@ -639,171 +881,82 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildHistoryHeader(BuildContext context) {
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          'Prediction History',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: AppColors.textDark,
-              ),
-        ),
-        GestureDetector(
-          onTap: () {
-            // Future History page redirection
-          },
-          child: Text(
-            'View All',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textGreenLink,
-                  fontWeight: FontWeight.w600,
-                ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildHistoryList(BuildContext context, List<PredictionHistoryModel> history) {
-    return ListView.separated(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: history.length,
-      separatorBuilder: (context, index) => AppSizes.spaceM,
-      itemBuilder: (context, index) {
-        final item = history[index];
-        return _buildHistoryItem(context, item);
-      },
-    );
-  }
-
-  Widget _buildHistoryItem(BuildContext context, PredictionHistoryModel item) {
-    // Determine background color / icon based on crop name
-    Color avatarBgColor = AppColors.lightGreen;
-    IconData cropIcon = Icons.grass;
-
-    if (item.cropName.toLowerCase() == 'rice') {
-      cropIcon = Icons.eco;
-    } else if (item.cropName.toLowerCase() == 'wheat') {
-      cropIcon = Icons.grain;
-    }
-
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.white.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(AppSizes.radiusLarge),
-        border: Border.all(color: AppColors.white.withValues(alpha: 0.8), width: 1),
-        boxShadow: const [
-          BoxShadow(
-            color: AppColors.cardShadow,
-            blurRadius: 6,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: AppSizes.m,
-          vertical: AppSizes.xs,
-        ),
-        leading: CircleAvatar(
-          backgroundColor: avatarBgColor,
-          radius: 24,
-          child: Icon(
-            cropIcon,
-            color: AppColors.primaryGreen,
-          ),
-        ),
-        title: Text(
-          item.cropName,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-        ),
-        subtitle: Text(
-          item.date,
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              item.recommendation,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.textMedium,
-                  ),
-            ),
-            const SizedBox(width: AppSizes.s),
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: AppColors.textLight,
-            ),
-          ],
-        ),
-        onTap: () {
-          final fullItem = MockDatabase.historyList.firstWhere(
-            (e) => e.id == item.id,
-            orElse: () => MockDatabase.historyList.first,
-          );
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => PredictionDetailsScreen(item: fullItem),
-            ),
-          ).then((_) {
-            widget.controller.loadDashboardData();
-          });
-        },
-      ),
-    );
-  }
+  // ─── Bottom Nav ───────────────────────────────────────────────────────────
 
   Widget _buildBottomNavigationBar(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        color: AppColors.white.withValues(alpha: 0.9),
-        border: Border(
-          top: BorderSide(
-            color: AppColors.white.withValues(alpha: 0.5),
-            width: 1,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Color(0xFFE8F0E8), width: 1)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 62,
+          child: Row(
+            children: [
+              _buildNavItem(0, Icons.home_rounded, Icons.home_outlined, 'Home'),
+              _buildNavItem(
+                1,
+                Icons.history_rounded,
+                Icons.history_outlined,
+                'History',
+              ),
+              _buildNavItem(
+                2,
+                Icons.person_rounded,
+                Icons.person_outline_rounded,
+                'Profile',
+              ),
+            ],
           ),
         ),
       ),
-      child: BottomNavigationBar(
-        currentIndex: _currentNavigationIndex,
-        onTap: (index) {
-          setState(() {
-            _currentNavigationIndex = index;
-          });
-        },
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        selectedItemColor: AppColors.primaryGreen,
-        unselectedItemColor: AppColors.textLight,
-        selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-        unselectedLabelStyle: const TextStyle(fontSize: 12),
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_filled),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.analytics_outlined),
-            label: 'Predict',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.history_rounded),
-            label: 'History',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline_rounded),
-            label: 'Profile',
-          ),
-        ],
+    );
+  }
+
+  Widget _buildNavItem(
+    int index,
+    IconData activeIcon,
+    IconData inactiveIcon,
+    String label,
+  ) {
+    final isSelected = _currentNavigationIndex == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _currentNavigationIndex = index),
+        behavior: HitTestBehavior.opaque,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              isSelected ? activeIcon : inactiveIcon,
+              color: isSelected ? AppColors.primaryGreen : AppColors.textLight,
+              size: 22,
+            ),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected
+                    ? AppColors.primaryGreen
+                    : AppColors.textLight,
+              ),
+            ),
+            if (isSelected)
+              Container(
+                margin: const EdgeInsets.only(top: 3),
+                width: 4,
+                height: 4,
+                decoration: const BoxDecoration(
+                  color: AppColors.primaryGreen,
+                  shape: BoxShape.circle,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

@@ -14,7 +14,6 @@ class PickedImageData {
 
 class ImagePickerService {
   static Future<PickedImageData?> pickImage() async {
-    // 1. Try standard ImagePicker plugin first
     try {
       final ImagePicker picker = ImagePicker();
       final XFile? file = await picker.pickImage(
@@ -31,7 +30,6 @@ class ImagePickerService {
       debugPrint('ImagePicker plugin exception: $e');
     }
 
-    // 2. Web plugin fallback
     if (kIsWeb) {
       try {
         final webResult = await web_picker.pickImageFile();

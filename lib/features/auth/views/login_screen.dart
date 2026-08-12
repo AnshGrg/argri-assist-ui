@@ -1,8 +1,5 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_sizes.dart';
-import '../../../core/widgets/glass_card.dart';
 import '../controllers/auth_controller.dart';
 import 'register_screen.dart';
 
@@ -57,339 +54,312 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          // Background Image
-          Positioned.fill(
-            child: Image.asset(
-              'assets/images/background.jpg',
-              fit: BoxFit.cover,
-            ),
-          ),
-          // Blur Filter & Translucent Overlay
-          Positioned.fill(
-            child: ClipRect(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 30.0, sigmaY: 30.0),
-                child: Container(
-                  color: AppColors.backgroundGreen.withValues(alpha: 0.55),
+      backgroundColor: const Color(0xFFD6EAD8),
+      body: SafeArea(
+        child: AnimatedBuilder(
+          animation: widget.controller,
+          builder: (context, _) {
+            return Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 440),
+                  child: Column(
+                    children: [
+                      // App Logo & Header
+                      _buildLogoHeader(),
+                      const SizedBox(height: 28),
+
+                      // Form Container Card
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE4F3E6),
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.8),
+                            width: 1.5,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.03),
+                              blurRadius: 15,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Welcome back',
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF1E3A29),
+                                  letterSpacing: -0.3,
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+
+                              if (widget.controller.errorMessage != null) ...[
+                                _buildErrorCard(widget.controller.errorMessage!),
+                                const SizedBox(height: 16),
+                              ],
+
+                              // Email
+                              _buildFieldLabel('Email'),
+                              TextFormField(
+                                controller: _emailController,
+                                keyboardType: TextInputType.emailAddress,
+                                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: Color(0xFF2D3748)),
+                                decoration: _buildInputDecoration(
+                                  hintText: 'your@email.com',
+                                  prefixIcon: Icons.email_rounded,
+                                ),
+                                validator: (val) {
+                                  if (val == null || val.trim().isEmpty) {
+                                    return 'Please enter your email';
+                                  }
+                                  if (!val.contains('@')) {
+                                    return 'Please enter a valid email';
+                                  }
+                                  return null;
+                                },
+                                onChanged: widget.controller.setEmail,
+                              ),
+                              const SizedBox(height: 18),
+
+                              // Password
+                              _buildFieldLabel('Password'),
+                              TextFormField(
+                                controller: _passwordController,
+                                obscureText: widget.controller.isObscurePassword,
+                                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: Color(0xFF2D3748)),
+                                decoration: _buildInputDecoration(
+                                  hintText: '••••••••',
+                                  prefixIcon: Icons.lock_rounded,
+                                  suffixIcon: IconButton(
+                                    icon: Icon(
+                                      widget.controller.isObscurePassword
+                                          ? Icons.visibility_off_outlined
+                                          : Icons.visibility_outlined,
+                                      color: const Color(0xFF64748B),
+                                      size: 20,
+                                    ),
+                                    onPressed: widget.controller.togglePasswordVisibility,
+                                  ),
+                                ),
+                                validator: (val) {
+                                  if (val == null || val.isEmpty) {
+                                    return 'Please enter your password';
+                                  }
+                                  return null;
+                                },
+                                onChanged: widget.controller.setPassword,
+                              ),
+                              const SizedBox(height: 28),
+
+                              // Login Button
+                              SizedBox(
+                                width: double.infinity,
+                                height: 54,
+                                child: ElevatedButton(
+                                  onPressed: widget.controller.isLoading ? null : () => _handleLogin(),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF2B9348),
+                                    foregroundColor: Colors.white,
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                  ),
+                                  child: widget.controller.isLoading
+                                      ? const SizedBox(
+                                          width: 22,
+                                          height: 22,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2.5,
+                                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                          ),
+                                        )
+                                      : const Text(
+                                          'Login',
+                                          style: TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+
+                              // Divider "or"
+                              Row(
+                                children: const [
+                                  Expanded(child: Divider(color: Color(0xFFCBD5E1), height: 1)),
+                                  Padding(
+                                    padding: EdgeInsets.symmetric(horizontal: 12),
+                                    child: Text(
+                                      'or',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: Color(0xFF64748B),
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(child: Divider(color: Color(0xFFCBD5E1), height: 1)),
+                                ],
+                              ),
+                              const SizedBox(height: 20),
+
+                              // Sign Up Link
+                              Center(
+                                child: GestureDetector(
+                                  onTap: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (context) => RegisterScreen(controller: widget.controller),
+                                      ),
+                                    );
+                                  },
+                                  child: RichText(
+                                    text: const TextSpan(
+                                      text: "Don't have an account? ",
+                                      style: TextStyle(
+                                        color: Color(0xFF4A5568),
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      children: [
+                                        TextSpan(
+                                          text: 'Sign up',
+                                          style: TextStyle(
+                                            color: Color(0xFF2B9348),
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ),
-          // Scrollable UI
-          SafeArea(
-            child: AnimatedBuilder(
-              animation: widget.controller,
-              builder: (context, _) {
-                return Center(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSizes.xl,
-                      vertical: AppSizes.l,
-                    ),
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 420),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _buildLogoHeader(context),
-                          AppSizes.spaceXl,
-                          _buildGlassFormCard(context),
-                          AppSizes.spaceL,
-                          _buildRegisterLink(context),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
+            );
+          },
+        ),
       ),
     );
   }
 
-  Widget _buildLogoHeader(BuildContext context) {
+  Widget _buildLogoHeader() {
     return Column(
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.eco,
-              color: AppColors.primaryGreen,
-              size: 42,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'AgriAssist',
-              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primaryGreen,
-                    letterSpacing: -0.5,
-                  ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        Text(
-          'Welcome back!',
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: AppColors.textDark,
-                fontWeight: FontWeight.w500,
+        Container(
+          width: 72,
+          height: 72,
+          decoration: BoxDecoration(
+            color: const Color(0xFF2B9348),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.08),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
+            ],
+          ),
+          child: const Center(
+            child: Icon(
+              Icons.eco_rounded,
+              color: Colors.white,
+              size: 40,
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        const Text(
+          'AgriAssist',
+          style: TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF1E3A29),
+            letterSpacing: -0.5,
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildGlassFormCard(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.symmetric(horizontal: AppSizes.xl, vertical: AppSizes.xxl),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (widget.controller.errorMessage != null) ...[
-              _buildErrorCard(widget.controller.errorMessage!),
-              AppSizes.spaceM,
-            ],
-            // Email Input
-            TextFormField(
-              controller: _emailController,
-              keyboardType: TextInputType.emailAddress,
-              decoration: InputDecoration(
-                hintText: 'Email',
-                hintStyle: const TextStyle(color: AppColors.textMedium, fontSize: 15),
-                prefixIcon: const Icon(Icons.mail_outline_rounded, color: AppColors.textMedium),
-                filled: true,
-                fillColor: AppColors.white.withValues(alpha: 0.75),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppSizes.radiusMedium),
-                  borderSide: BorderSide(color: AppColors.white.withValues(alpha: 0.9)),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppSizes.radiusMedium),
-                  borderSide: BorderSide(color: AppColors.white.withValues(alpha: 0.9)),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppSizes.radiusMedium),
-                  borderSide: const BorderSide(color: AppColors.primaryGreen, width: 1.5),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: AppSizes.m,
-                  vertical: AppSizes.m,
-                ),
-              ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Please enter your email';
-                }
-                if (!value.contains('@')) {
-                  return 'Please enter a valid email';
-                }
-                return null;
-              },
-              onChanged: widget.controller.setEmail,
-            ),
-            AppSizes.spaceM,
-            // Password Input
-            TextFormField(
-              controller: _passwordController,
-              obscureText: widget.controller.isObscurePassword,
-              decoration: InputDecoration(
-                hintText: 'Password',
-                hintStyle: const TextStyle(color: AppColors.textMedium, fontSize: 15),
-                prefixIcon: const Icon(Icons.lock_outline_rounded, color: AppColors.textMedium),
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    widget.controller.isObscurePassword
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
-                    color: AppColors.textMedium,
-                  ),
-                  onPressed: widget.controller.togglePasswordVisibility,
-                ),
-                filled: true,
-                fillColor: AppColors.white.withValues(alpha: 0.75),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppSizes.radiusMedium),
-                  borderSide: BorderSide(color: AppColors.white.withValues(alpha: 0.9)),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppSizes.radiusMedium),
-                  borderSide: BorderSide(color: AppColors.white.withValues(alpha: 0.9)),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppSizes.radiusMedium),
-                  borderSide: const BorderSide(color: AppColors.primaryGreen, width: 1.5),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: AppSizes.m,
-                  vertical: AppSizes.m,
-                ),
-              ),
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please enter your password';
-                }
-                return null;
-              },
-              onChanged: widget.controller.setPassword,
-            ),
-            const SizedBox(height: 8),
-            // Forgot Password link
-            Align(
-              alignment: Alignment.centerRight,
-              child: GestureDetector(
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Forgot Password flow')),
-                  );
-                },
-                child: Text(
-                  'Forgot password?',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.primaryGreen,
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-              ),
-            ),
-            AppSizes.spaceL,
-            // Login Button with Right Arrow
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton(
-                onPressed: widget.controller.isLoading ? null : () => _handleLogin(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryGreen,
-                  foregroundColor: AppColors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppSizes.radiusExtraLarge),
-                  ),
-                  elevation: 3,
-                ),
-                child: widget.controller.isLoading
-                    ? const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.5,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      )
-                    : const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            'Login',
-                            style: TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          SizedBox(width: 10),
-                          Icon(Icons.arrow_forward_rounded, size: 20),
-                        ],
-                      ),
-              ),
-            ),
-            AppSizes.spaceXl,
-            // Divider "or continue with"
-            Row(
-              children: [
-                Expanded(child: Divider(color: AppColors.textMedium.withValues(alpha: 0.3))),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSizes.s),
-                  child: Text(
-                    'or continue with',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: AppColors.textMedium.withValues(alpha: 0.8),
-                    ),
-                  ),
-                ),
-                Expanded(child: Divider(color: AppColors.textMedium.withValues(alpha: 0.3))),
-              ],
-            ),
-            AppSizes.spaceL,
-            // Social Login Buttons
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _buildSocialButton(
-                  child: const Text(
-                    'G',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.redAccent,
-                    ),
-                  ),
-                  onTap: () {},
-                ),
-                const SizedBox(width: AppSizes.l),
-                _buildSocialButton(
-                  child: const Icon(
-                    Icons.apple,
-                    color: Colors.black,
-                    size: 26,
-                  ),
-                  onTap: () {},
-                ),
-                const SizedBox(width: AppSizes.l),
-                _buildSocialButton(
-                  child: const Text(
-                    'f',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1877F2),
-                    ),
-                  ),
-                  onTap: () {},
-                ),
-              ],
-            ),
-          ],
+  Widget _buildFieldLabel(String label) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6, left: 2),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: Color(0xFF2D3748),
         ),
       ),
     );
   }
 
-  Widget _buildSocialButton({required Widget child, required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 52,
-        height: 52,
-        decoration: BoxDecoration(
-          color: AppColors.white.withValues(alpha: 0.85),
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
-              blurRadius: 6,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Center(child: child),
+  InputDecoration _buildInputDecoration({
+    required String hintText,
+    required IconData prefixIcon,
+    Widget? suffixIcon,
+  }) {
+    return InputDecoration(
+      hintText: hintText,
+      hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 15, fontWeight: FontWeight.w400),
+      prefixIcon: Icon(prefixIcon, color: const Color(0xFFB8C5D6), size: 20),
+      suffixIcon: suffixIcon,
+      filled: true,
+      fillColor: Colors.white,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: Color(0xFF2B9348), width: 2),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: Colors.redAccent, width: 1),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: Colors.redAccent, width: 2),
       ),
     );
   }
 
   Widget _buildErrorCard(String error) {
     return Container(
-      padding: const EdgeInsets.all(AppSizes.m),
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.red.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(AppSizes.radiusMedium),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
       ),
       child: Row(
@@ -403,35 +373,6 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildRegisterLink(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => RegisterScreen(controller: widget.controller),
-          ),
-        );
-      },
-      child: RichText(
-        text: TextSpan(
-          text: "Don't have an account? ",
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppColors.textDark,
-              ),
-          children: const [
-            TextSpan(
-              text: 'Register',
-              style: TextStyle(
-                color: AppColors.primaryGreen,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

@@ -1,13 +1,15 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_sizes.dart';
+import '../../../core/services/token_storage.dart';
 import '../../auth/controllers/auth_controller.dart';
 import '../../auth/repos/auth_repo.dart';
 import '../../auth/views/login_screen.dart';
+import '../../home/controllers/home_controller.dart';
+import '../../home/repos/home_repo.dart';
+import '../../home/views/home_screen.dart';
+import '../../../core/utils/string_utils.dart';
 import '../controllers/profile_controller.dart';
 import '../repos/profile_repo.dart';
-import 'edit_profile_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final ProfileController? controller;
@@ -26,319 +28,252 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   late final ProfileController _controller;
   late final AuthController _authController;
+  String _locationName = 'Bharatpur, Chitwan';
 
   @override
   void initState() {
     super.initState();
     _controller = widget.controller ?? ProfileController(profileRepo: HttpProfileRepo());
     _authController = widget.authController ?? AuthController(authRepo: HttpAuthRepo());
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       _controller.fetchUserProfile(accessToken: _authController.tokens?.access);
+      final selectedCity = await TokenStorage.loadSelectedCity();
+      if (mounted) {
+        setState(() {
+          _locationName = selectedCity.displayName;
+        });
+      }
     });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          // Background Image
-          Positioned.fill(
-            child: Image.asset(
-              'assets/images/background.jpg',
-              fit: BoxFit.cover,
-            ),
-          ),
-          // Blur Filter & Translucent Overlay
-          Positioned.fill(
-            child: ClipRect(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 40.0, sigmaY: 40.0),
-                child: Container(
-                  color: AppColors.backgroundGreen.withValues(alpha: 0.65),
-                ),
-              ),
-            ),
-          ),
-          // Screen UI
-          SafeArea(
-            child: AnimatedBuilder(
-              animation: Listenable.merge([_controller, _authController]),
-              builder: (context, _) {
-                return Column(
-                  children: [
-                    _buildAppBar(context),
-                    Expanded(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(AppSizes.xl),
-                        child: Column(
-                          children: [
-                            _buildUserProfileHeader(context),
-                            AppSizes.spaceXl,
-                            _buildMenuOptionsCard(context),
-                          ],
-                        ),
-                      ),
+      backgroundColor: const Color(0xFFEDF7EE),
+      body: SafeArea(
+        child: AnimatedBuilder(
+          animation: Listenable.merge([_controller, _authController]),
+          builder: (context, _) {
+            if (_controller.isLoading || _authController.isLoading) {
+              return const Center(
+                child: CircularProgressIndicator(color: AppColors.primaryGreen),
+              );
+            }
+
+            final profile = _controller.userProfile;
+            final authUsername = _authController.tokens?.username;
+            final authEmail = _authController.tokens?.email;
+            final formattedUsername = StringUtils.formatUsername(authUsername);
+            final fullName = profile?.fullName.isNotEmpty == true
+                ? profile!.fullName
+                : (formattedUsername.isNotEmpty ? formattedUsername : 'Farmer');
+            final email = profile?.email.isNotEmpty == true
+                ? profile!.email
+                : (authEmail ?? 'alex.johnson@farmmail.com');
+
+            return SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+              child: Column(
+                children: [
+                  const SizedBox(height: 20),
+                  // Full Name Header
+                  Text(
+                    fullName,
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textDark,
                     ),
-                  ],
-                );
-              },
-            ),
-          ),
-        ],
+                  ),
+                  const SizedBox(height: 28),
+
+                  _buildInfoCard(
+                    icon: Icons.email_outlined,
+                    iconBg: const Color(0xFFF3E5F5),
+                    iconColor: const Color(0xFFAB47BC),
+                    label: 'Email',
+                    value: email,
+                  ),
+                  const SizedBox(height: 14),
+
+                  _buildInfoCard(
+                    icon: Icons.location_on_rounded,
+                    iconBg: const Color(0xFFFCE4EC),
+                    iconColor: const Color(0xFFE91E63),
+                    label: 'Location',
+                    value: _locationName,
+                  ),
+                  const SizedBox(height: 32),
+
+                  // Action Buttons: Edit Profile & Logout
+                  _buildActionButtons(context, authEmail??'', authUsername??''),
+                  const SizedBox(height: 20),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
 
-  Widget _buildAppBar(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSizes.l,
-        vertical: AppSizes.s,
+  Widget _buildInfoCard({
+    required IconData icon,
+    required Color iconBg,
+    required Color iconColor,
+    required String label,
+    required String value,
+    String? trailingBadge,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          IconButton(
-            icon: const Icon(
-              Icons.settings_outlined,
-              color: AppColors.textDark,
-              size: AppSizes.iconMedium,
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: iconBg,
+              shape: BoxShape.circle,
             ),
-            onPressed: () {
-              // Open Settings Sheet
-            },
+            child: Icon(icon, color: iconColor, size: 20),
           ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textLight,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textDark,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (trailingBadge != null)
+            Text(
+              trailingBadge,
+              style: const TextStyle(
+                fontSize: 11,
+                color: AppColors.textLight,
+              ),
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildUserProfileHeader(BuildContext context) {
-    if (_controller.isLoading || _authController.isLoading) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(AppSizes.xl),
-          child: CircularProgressIndicator(color: AppColors.primaryGreen),
-        ),
-      );
-    }
-
-    final profile = _controller.userProfile;
-    final authUsername = _authController.tokens?.username;
-    final authEmail = _authController.tokens?.email;
-    final fullName = profile?.fullName.isNotEmpty == true
-        ? profile!.fullName
-        : (authUsername ?? 'Farmer');
-    final email = profile?.email.isNotEmpty == true
-        ? profile!.email
-        : (authEmail ?? '');
-    final phone = profile?.profile?.phoneNumber ?? '';
-    final city = profile?.profile?.city;
-
+  Widget _buildActionButtons(BuildContext context, String authEmail, String authUsername) {
     return Column(
       children: [
-        // Styled circular profile image container
-        Container(
-          width: 110,
-          height: 110,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: AppColors.white,
-              width: 3.5,
+        // Edit Profile Button
+        // SizedBox(
+        //   width: double.infinity,
+        //   height: 52,
+        //   child: ElevatedButton(
+        //     style: ElevatedButton.styleFrom(
+        //       backgroundColor: AppColors.primaryGreen,
+        //       foregroundColor: Colors.white,
+        //       elevation: 2,
+        //       shape: RoundedRectangleBorder(
+        //         borderRadius: BorderRadius.circular(16),
+        //       ),
+        //     ),
+        //     onPressed: () {
+        //       final user = _controller.userProfile;
+        //       Navigator.of(context).push(
+        //         MaterialPageRoute(
+        //           builder: (context) => EditProfileScreen(
+        //             controller: _controller,
+        //             initialFullName: authUsername,
+        //             initialEmail: authEmail ,
+        //             initialCity: user?.profile?.city ?? '',
+        //           ),
+        //         ),
+        //       );
+        //     },
+        //     child: const Row(
+        //       mainAxisAlignment: MainAxisAlignment.center,
+        //       children: [
+        //         Icon(Icons.edit_outlined, size: 18),
+        //         SizedBox(width: 8),
+        //         Text(
+        //           'Edit Profile',
+        //           style: TextStyle(
+        //             fontSize: 15,
+        //             fontWeight: FontWeight.bold,
+        //           ),
+        //         ),
+        //       ],
+        //     ),
+        //   ),
+        // ),
+        // const SizedBox(height: 12),
+        // Logout Button
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.redAccent,
+              side: BorderSide(color: Colors.redAccent.withValues(alpha: 0.4)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
             ),
-            boxShadow: const [
-              BoxShadow(
-                color: AppColors.cardShadow,
-                blurRadius: 10,
-                offset: Offset(0, 4),
-              ),
-            ],
-          ),
-          child: const CircleAvatar(
-            backgroundColor: AppColors.lightGreen,
-            child: Icon(
-              Icons.person_rounded,
-              size: 56,
-              color: AppColors.primaryGreen,
-            ),
-          ),
-        ),
-        AppSizes.spaceM,
-        Text(
-          fullName,
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: AppColors.textDark,
-              ),
-        ),
-        AppSizes.spaceXs,
-        Text(
-          email,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppColors.textMedium,
-              ),
-        ),
-        if (phone.isNotEmpty) ...[
-          AppSizes.spaceXs,
-          Text(
-            phone,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.textLight,
+            onPressed: () => _showLogoutDialog(context),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.logout_rounded, size: 18, color: Colors.redAccent),
+                SizedBox(width: 8),
+                Text(
+                  'Logout',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.redAccent,
+                  ),
                 ),
+              ],
+            ),
           ),
-        ],
-        if (city != null && city.isNotEmpty) ...[
-          AppSizes.spaceXs,
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.location_on_outlined, size: 16, color: AppColors.primaryGreen),
-              const SizedBox(width: 4),
-              Text(
-                city,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textMedium,
-                      fontWeight: FontWeight.w500,
-                    ),
-              ),
-            ],
-          ),
-        ],
+        ),
       ],
     );
   }
 
-  Widget _buildMenuOptionsCard(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.white.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(AppSizes.radiusLarge),
-        border: Border.all(
-          color: AppColors.white.withValues(alpha: 0.8),
-          width: 1,
-        ),
-        boxShadow: const [
-          BoxShadow(
-            color: AppColors.cardShadow,
-            blurRadius: 8,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          _buildMenuRow(
-            context: context,
-            icon: Icons.landscape_outlined,
-            title: 'My Fields',
-            onTap: () {},
-          ),
-          const Divider(color: AppColors.glassBorder, height: 1),
-          _buildMenuRow(
-            context: context,
-            icon: Icons.history_edu_outlined,
-            title: 'Saved Predictions',
-            onTap: () {},
-          ),
-          const Divider(color: AppColors.glassBorder, height: 1),
-          _buildMenuRow(
-            context: context,
-            icon: Icons.edit_outlined,
-            title: 'Edit Profile',
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => EditProfileScreen(
-                    controller: _controller,
-                  ),
-                ),
-              );
-            },
-          ),
-          const Divider(color: AppColors.glassBorder, height: 1),
-          _buildMenuRow(
-            context: context,
-            icon: Icons.tune_rounded,
-            title: 'Preferences',
-            onTap: () {},
-          ),
-          const Divider(color: AppColors.glassBorder, height: 1),
-          _buildMenuRow(
-            context: context,
-            icon: Icons.help_outline_rounded,
-            title: 'Help & Support',
-            onTap: () {},
-          ),
-          const Divider(color: AppColors.glassBorder, height: 1),
-          _buildMenuRow(
-            context: context,
-            icon: Icons.login_rounded,
-            title: 'Account Login',
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => LoginScreen(
-                    controller: _authController,
-                  ),
-                ),
-              );
-            },
-          ),
-          const Divider(color: AppColors.glassBorder, height: 1),
-          _buildMenuRow(
-            context: context,
-            icon: Icons.logout_rounded,
-            title: 'Logout',
-            textColor: Colors.red,
-            iconColor: Colors.red,
-            showChevron: false,
-            onTap: () => _showLogoutDialog(context),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMenuRow({
-    required BuildContext context,
-    required IconData icon,
-    required String title,
-    required VoidCallback onTap,
-    Color? textColor,
-    Color? iconColor,
-    bool showChevron = true,
-  }) {
-    return ListTile(
-      leading: Icon(
-        icon,
-        color: iconColor ?? AppColors.primaryGreen,
-        size: AppSizes.iconMedium,
-      ),
-      title: Text(
-        title,
-        style: TextStyle(
-          fontWeight: FontWeight.w600,
-          color: textColor ?? AppColors.textDark,
-        ),
-      ),
-      trailing: showChevron
-          ? const Icon(
-              Icons.chevron_right_rounded,
-              color: AppColors.textLight,
-            )
-          : null,
-      onTap: onTap,
-    );
-  }
-
   void _showLogoutDialog(BuildContext context) {
-    // If user is not even logged in, go straight to login screen
     if (!_authController.isLoggedIn) {
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (context) => LoginScreen(controller: _authController),
+          builder: (context) => LoginScreen(
+            controller: _authController,
+            onLoginSuccess: () => _navigateToHome(context),
+          ),
         ),
       );
       return;
@@ -367,10 +302,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     backgroundColor: AppColors.primaryGreen,
                   ),
                 );
-                navigator.push(
+                navigator.pushAndRemoveUntil(
                   MaterialPageRoute(
-                    builder: (context) => LoginScreen(controller: _authController),
+                    builder: (context) => LoginScreen(
+                      controller: _authController,
+                      onLoginSuccess: () => _navigateToHome(context),
+                    ),
                   ),
+                  (route) => false,
                 );
               }
             },
@@ -380,5 +319,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
-}
 
+  void _navigateToHome(BuildContext context) {
+    final homeController = HomeController(homeRepo: OpenMeteoHomeRepo());
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (context) => HomeScreen(controller: homeController),
+      ),
+      (route) => false,
+    );
+  }
+}

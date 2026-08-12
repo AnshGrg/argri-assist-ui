@@ -1,8 +1,8 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_sizes.dart';
-import '../../../core/widgets/primary_button.dart';
+import '../../../core/widgets/nutrient_input_field.dart';
 import '../../predict/controllers/predict_controller.dart'; // for LocationOption
 import '../controllers/fertilizer_controller.dart';
 import 'fertilizer_recommendation_screen.dart';
@@ -17,472 +17,710 @@ class PredictFertilizerScreen extends StatefulWidget {
 }
 
 class _PredictFertilizerScreenState extends State<PredictFertilizerScreen> {
+  late final TextEditingController _phController;
+
   @override
   void initState() {
     super.initState();
+    _phController = TextEditingController(
+      text: widget.controller.isCropTypeLocked
+          ? widget.controller.ph.toStringAsFixed(1)
+          : '',
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       widget.controller.fetchCrops();
     });
   }
 
   @override
+  void dispose() {
+    _phController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          // Background Image
-          Positioned.fill(
-            child: Image.asset(
-              'assets/images/background.jpg',
-              fit: BoxFit.cover,
-            ),
-          ),
-          // Blur Filter & Translucent Overlay
-          Positioned.fill(
-            child: ClipRect(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 40.0, sigmaY: 40.0),
-                child: Container(
-                  color: AppColors.backgroundGreen.withValues(alpha: 0.65),
-                ),
-              ),
-            ),
-          ),
-          // Screen UI
-          SafeArea(
-            child: AnimatedBuilder(
-              animation: widget.controller,
-              builder: (context, _) {
-                return Column(
-                  children: [
-                    _buildAppBar(context),
-                    Expanded(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.symmetric(horizontal: AppSizes.xl),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildLockedCropType(context),
-                            AppSizes.spaceM,
-                            _buildLocationDropdown(context),
-                            AppSizes.spaceM,
-                            _buildSeasonDropdown(context),
-                            AppSizes.spaceM,
-                            _buildNutrientsInputs(context),
-                            AppSizes.spaceL,
-                          ],
-                        ),
-                      ),
+      backgroundColor: const Color(0xFFEDF7EE),
+      body: SafeArea(
+        child: AnimatedBuilder(
+          animation: widget.controller,
+          builder: (context, _) {
+            return Column(
+              children: [
+                _buildHeader(context),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildCropSection(context),
+                        const SizedBox(height: 20),
+                        _buildNpkSection(context),
+                        const SizedBox(height: 20),
+                        _buildLocationSection(context),
+                        const SizedBox(height: 20),
+                        _buildSeasonSection(context),
+                        const SizedBox(height: 20),
+                        _buildPhSection(context),
+                        const SizedBox(height: 20),
+                        _buildClimateNotice(context),
+                        const SizedBox(height: 28),
+                        _buildSubmitButton(context),
+                        const SizedBox(height: 16),
+                      ],
                     ),
-                    _buildFooterButton(context),
-                  ],
-                );
-              },
-            ),
-          ),
-        ],
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
 
-  Widget _buildAppBar(BuildContext context) {
+  // ─── Header ───────────────────────────────────────────────────────────────
+
+  Widget _buildHeader(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSizes.l,
-        vertical: AppSizes.s,
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          IconButton(
-            icon: const Icon(
-              Icons.chevron_left_rounded,
-              size: AppSizes.iconExtraLarge,
-              color: AppColors.textDark,
-            ),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-          Text(
-            'Predict Fertilizer',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+          Row(
+            children: [
+              GestureDetector(
+                onTap: () {
+                  if (Navigator.canPop(context)) {
+                    Navigator.of(context).pop();
+                  }
+                },
+                child: Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.chevron_left_rounded,
+                    color: AppColors.textDark,
+                    size: 24,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              const Text(
+                'Fertilizer Prediction',
+                style: TextStyle(
+                  fontSize: 20,
                   fontWeight: FontWeight.bold,
                   color: AppColors.textDark,
                 ),
+              ),
+            ],
           ),
-          IconButton(
-            icon: const Icon(
-              Icons.info_outline_rounded,
-              color: AppColors.primaryGreen,
-              size: AppSizes.iconMedium,
+          const SizedBox(height: 10),
+          const Text(
+            'Enter your field details to get fertilizer recommendations',
+            style: TextStyle(
+              fontSize: 13,
+              color: AppColors.textMedium,
             ),
-            onPressed: () => _showInfoDialog(context),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildLockedCropType(BuildContext context) {
-    if (widget.controller.isCropTypeLocked) {
-      return Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSizes.l,
-          vertical: AppSizes.m,
-        ),
-        decoration: BoxDecoration(
-          color: AppColors.white.withValues(alpha: 0.6),
-          borderRadius: BorderRadius.circular(AppSizes.radiusLarge),
-          border: Border.all(
-            color: AppColors.white.withValues(alpha: 0.8),
-            width: 1,
+  // ─── Crop Section ─────────────────────────────────────────────────────────
+
+  Widget _buildCropSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Select Crop',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textDark,
           ),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Crop Type',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.textDark,
-                  ),
-            ),
-            Row(
-              children: [
-                Text(
-                  widget.controller.cropType.toUpperCase(),
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textDark,
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFE8F5E9),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.grass_rounded,
+                  color: AppColors.primaryGreen,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 12),
+              if (widget.controller.isCropTypeLocked)
+                // Locked crop — prefilled from crop prediction
+                Expanded(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        widget.controller.cropType[0].toUpperCase() +
+                            widget.controller.cropType.substring(1),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textDark,
+                        ),
                       ),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE8F5E9),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Text(
+                              'From crop result',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: AppColors.primaryGreen,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          const Icon(
+                            Icons.lock_outline_rounded,
+                            color: AppColors.textLight,
+                            size: 16,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                )
+              else
+                // Editable crop dropdown
+                Expanded(
+                  child: widget.controller.isFetchingCrops
+                      ? const Row(
+                          children: [
+                            SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryGreen),
+                              ),
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              'Loading crops...',
+                              style: TextStyle(fontSize: 13, color: AppColors.textLight),
+                            ),
+                          ],
+                        )
+                      : DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: widget.controller.crops.contains(widget.controller.cropType)
+                                ? widget.controller.cropType
+                                : (widget.controller.crops.isNotEmpty
+                                    ? widget.controller.crops.first
+                                    : widget.controller.cropType),
+                            icon: const Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              color: AppColors.textLight,
+                              size: 20,
+                            ),
+                            isExpanded: true,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: AppColors.textDark,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            onChanged: (newValue) {
+                              if (newValue != null) {
+                                widget.controller.setCropType(newValue);
+                              }
+                            },
+                            items: (widget.controller.crops.isNotEmpty
+                                    ? widget.controller.crops
+                                    : [widget.controller.cropType])
+                                .map<DropdownMenuItem<String>>((crop) {
+                              return DropdownMenuItem<String>(
+                                value: crop,
+                                child: Text(
+                                  crop[0].toUpperCase() + crop.substring(1),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
                 ),
-                const SizedBox(width: AppSizes.s),
-                const Icon(
-                  Icons.lock_outline_rounded,
-                  color: AppColors.textLight,
-                  size: AppSizes.iconSmall,
-                ),
-              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ─── NPK Section ──────────────────────────────────────────────────────────
+
+  Widget _buildNpkSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'NPK Ratio',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textDark,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: NutrientInputField(
+                label: 'Nitrogen (N)',
+                hintText: 'e.g., 90',
+                initialValue: widget.controller.isCropTypeLocked
+                    ? widget.controller.nitrogen.toInt().toString()
+                    : null,
+                onChanged: widget.controller.setNitrogen,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: NutrientInputField(
+                label: 'Phosphorus (P)',
+                hintText: 'e.g., 42',
+                initialValue: widget.controller.isCropTypeLocked
+                    ? widget.controller.phosphorus.toInt().toString()
+                    : null,
+                onChanged: widget.controller.setPhosphorus,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: NutrientInputField(
+                label: 'Potassium (K)',
+                hintText: 'e.g., 43',
+                initialValue: widget.controller.isCropTypeLocked
+                    ? widget.controller.potassium.toInt().toString()
+                    : null,
+                onChanged: widget.controller.setPotassium,
+              ),
             ),
           ],
         ),
-      );
-    } else {
-      // Editable Crop Dropdown
-      return Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSizes.l,
-          vertical: AppSizes.s,
-        ),
-        decoration: BoxDecoration(
-          color: AppColors.white.withValues(alpha: 0.6),
-          borderRadius: BorderRadius.circular(AppSizes.radiusLarge),
-          border: Border.all(
-            color: AppColors.white.withValues(alpha: 0.8),
-            width: 1,
+        const SizedBox(height: 6),
+        const Text(
+          'Nitrogen-Phosphorus-Potassium ratio (kg/ha)',
+          style: TextStyle(
+            fontSize: 11,
+            color: AppColors.textLight,
           ),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Crop Type',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.textDark,
+      ],
+    );
+  }
+
+  // ─── Location Section ─────────────────────────────────────────────────────
+
+  Widget _buildLocationSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Location / Field',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textDark,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFCE4EC),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.location_on_rounded,
+                  color: Color(0xFFE91E63),
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<LocationOption>(
+                    value: widget.controller.selectedLocation,
+                    icon: const Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: AppColors.textLight,
+                      size: 20,
+                    ),
+                    isExpanded: true,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: AppColors.textDark,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    onChanged: (newValue) {
+                      if (newValue != null) {
+                        widget.controller.setLocation(newValue);
+                      }
+                    },
+                    items: FertilizerController.locationOptions
+                        .map<DropdownMenuItem<LocationOption>>((loc) {
+                      return DropdownMenuItem<LocationOption>(
+                        value: loc,
+                        child: Text(loc.displayName),
+                      );
+                    }).toList(),
                   ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ─── Season Section ───────────────────────────────────────────────────────
+
+  Widget _buildSeasonSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Season',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textDark,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFE8F5E9),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.wb_sunny_outlined,
+                  color: Color(0xFFFFB300),
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: widget.controller.selectedSeason,
+                    icon: const Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: AppColors.textLight,
+                      size: 20,
+                    ),
+                    isExpanded: true,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: AppColors.textDark,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    onChanged: (newValue) {
+                      if (newValue != null) {
+                        widget.controller.setSeason(newValue);
+                      }
+                    },
+                    items: FertilizerController.seasonOptions
+                        .map<DropdownMenuItem<String>>((season) {
+                      return DropdownMenuItem<String>(
+                        value: season,
+                        child: Text(season),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ─── Soil pH Section ──────────────────────────────────────────────────────
+
+  Widget _buildPhSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Soil pH',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textDark,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFE0F7FA),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.science_rounded,
+                  color: Color(0xFF00ACC1),
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextFormField(
+                  controller: _phController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                  ],
+                  onChanged: widget.controller.setPh,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: AppColors.textDark,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  decoration: const InputDecoration(
+                    hintText: 'e.g., 6.5',
+                    hintStyle: TextStyle(
+                      color: AppColors.textLight,
+                      fontSize: 14,
+                    ),
+                    border: InputBorder.none,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'Optimal range: 6.0 – 7.0',
+          style: TextStyle(
+            fontSize: 11,
+            color: AppColors.textLight,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ─── Climate Notice ───────────────────────────────────────────────────────
+
+  Widget _buildClimateNotice(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.primaryGreen.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.primaryGreen.withValues(alpha: 0.18),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('☀️', style: GoogleFonts.notoColorEmoji(fontSize: 18)),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'Climate data (temperature, humidity, rainfall) will be automatically fetched from NASA POWER 2025 API based on your selected location and season.',
+              style: TextStyle(
+                color: AppColors.textMedium,
+                fontSize: 12,
+                height: 1.45,
+              ),
             ),
-            if (widget.controller.isFetchingCrops)
-              const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryGreen),
-                ),
-              )
-            else
-              DropdownButton<String>(
-                value: widget.controller.crops.contains(widget.controller.cropType)
-                    ? widget.controller.cropType
-                    : (widget.controller.crops.isNotEmpty ? widget.controller.crops.first : widget.controller.cropType),
-                underline: const SizedBox(),
-                icon: const Icon(
-                  Icons.keyboard_arrow_down_rounded,
-                  color: AppColors.textMedium,
-                ),
-                dropdownColor: AppColors.backgroundGreen,
-                onChanged: (String? newValue) {
-                  if (newValue != null) {
-                    widget.controller.setCropType(newValue);
-                  }
-                },
-                items: (widget.controller.crops.isNotEmpty
-                        ? widget.controller.crops
-                        : [widget.controller.cropType])
-                    .map<DropdownMenuItem<String>>((String value) {
-                  return DropdownMenuItem<String>(
-                    value: value,
-                    child: Text(
-                      value.toUpperCase(),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textDark,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Submit Button ────────────────────────────────────────────────────────
+
+  String? _validateInputs() {
+    final n = widget.controller.nitrogen;
+    final p = widget.controller.phosphorus;
+    final k = widget.controller.potassium;
+    final ph = widget.controller.ph;
+
+    if (n < 10 || n > 130) {
+      return 'Nitrogen (N) must be between 10 and 130 kg/ha.';
+    }
+    if (p < 10 || p > 140) {
+      return 'Phosphorus (P) must be between 10 and 140 kg/ha.';
+    }
+    if (k < 10 || k > 200) {
+      return 'Potassium (K) must be between 10 and 200 kg/ha.';
+    }
+    if (ph < 4 || ph > 9) {
+      return 'Soil pH must be between 4 and 9.';
+    }
+    return null;
+  }
+
+  Widget _buildSubmitButton(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primaryGreen,
+          foregroundColor: Colors.white,
+          elevation: 2,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        onPressed: widget.controller.isLoading
+            ? null
+            : () async {
+                final validationError = _validateInputs();
+                if (validationError != null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(validationError),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+
+                await widget.controller.predictFertilizer();
+                if (context.mounted &&
+                    widget.controller.predictionResult != null) {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => FertilizerRecommendationScreen(
+                        controller: widget.controller,
+                        result: widget.controller.predictionResult!,
                       ),
                     ),
                   );
-                }).toList(),
-              ),
-          ],
-        ),
-      );
-    }
-  }
-
-  Widget _buildLocationDropdown(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSizes.l,
-        vertical: AppSizes.s,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.white.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(AppSizes.radiusLarge),
-        border: Border.all(
-          color: AppColors.white.withValues(alpha: 0.8),
-          width: 1,
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            'Location',
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.textDark,
+                } else if (context.mounted &&
+                    widget.controller.errorMessage != null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(widget.controller.errorMessage!)),
+                  );
+                }
+              },
+        child: widget.controller.isLoading
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
-          ),
-          DropdownButton<LocationOption>(
-            value: widget.controller.selectedLocation,
-            underline: const SizedBox(),
-            icon: const Icon(
-              Icons.keyboard_arrow_down_rounded,
-              color: AppColors.textMedium,
-            ),
-            dropdownColor: AppColors.backgroundGreen,
-            onChanged: (LocationOption? newValue) {
-              if (newValue != null) {
-                widget.controller.setLocation(newValue);
-              }
-            },
-            items: FertilizerController.locationOptions
-                .map<DropdownMenuItem<LocationOption>>((LocationOption value) {
-              return DropdownMenuItem<LocationOption>(
-                value: value,
-                child: Text(
-                  value.displayName,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textDark,
+              )
+            : const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.science_rounded, size: 18),
+                  SizedBox(width: 8),
+                  Text(
+                    'Get Fertilizer Recommendation',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSeasonDropdown(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSizes.l,
-        vertical: AppSizes.s,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.white.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(AppSizes.radiusLarge),
-        border: Border.all(
-          color: AppColors.white.withValues(alpha: 0.8),
-          width: 1,
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            'Season',
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.textDark,
-                ),
-          ),
-          DropdownButton<String>(
-            value: widget.controller.selectedSeason,
-            underline: const SizedBox(),
-            icon: const Icon(
-              Icons.keyboard_arrow_down_rounded,
-              color: AppColors.textMedium,
-            ),
-            dropdownColor: AppColors.backgroundGreen,
-            onChanged: (String? newValue) {
-              if (newValue != null) {
-                widget.controller.setSeason(newValue);
-              }
-            },
-            items: FertilizerController.seasonOptions
-                .map<DropdownMenuItem<String>>((String value) {
-              return DropdownMenuItem<String>(
-                value: value,
-                child: Text(
-                  value,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textDark,
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNutrientsInputs(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSizes.l),
-      decoration: BoxDecoration(
-        color: AppColors.white.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(AppSizes.radiusLarge),
-        border: Border.all(
-          color: AppColors.white.withValues(alpha: 0.8),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        children: [
-          _buildNutrientRow(
-            context: context,
-            label: 'Nitrogen (N)',
-            initialValue: widget.controller.nitrogen.toInt().toString(),
-            onChanged: widget.controller.setNitrogen,
-          ),
-          const Divider(color: AppColors.glassBorder),
-          _buildNutrientRow(
-            context: context,
-            label: 'Phosphorus (P)',
-            initialValue: widget.controller.phosphorus.toInt().toString(),
-            onChanged: widget.controller.setPhosphorus,
-          ),
-          const Divider(color: AppColors.glassBorder),
-          _buildNutrientRow(
-            context: context,
-            label: 'Potassium (K)',
-            initialValue: widget.controller.potassium.toInt().toString(),
-            onChanged: widget.controller.setPotassium,
-          ),
-          const Divider(color: AppColors.glassBorder),
-          _buildNutrientRow(
-            context: context,
-            label: 'Soil pH',
-            initialValue: widget.controller.ph.toString(),
-            onChanged: widget.controller.setPh,
-            isDecimal: true,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNutrientRow({
-    required BuildContext context,
-    required String label,
-    required String initialValue,
-    required ValueChanged<String> onChanged,
-    bool isDecimal = false,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSizes.xs),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.textDark,
-                ),
-          ),
-          SizedBox(
-            width: 70,
-            height: 36,
-            child: TextFormField(
-              initialValue: initialValue,
-              onChanged: onChanged,
-              keyboardType: TextInputType.numberWithOptions(decimal: isDecimal),
-              textAlign: TextAlign.right,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textDark,
+                ],
               ),
-              decoration: const InputDecoration(
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFooterButton(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(AppSizes.xl),
-      child: PrimaryButton(
-        text: 'Predict Fertilizer',
-        icon: Icons.shopping_bag_outlined,
-        isLoading: widget.controller.isLoading,
-        onPressed: () async {
-          await widget.controller.predictFertilizer();
-          if (context.mounted && widget.controller.predictionResult != null) {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => FertilizerRecommendationScreen(
-                  controller: widget.controller,
-                  result: widget.controller.predictionResult!,
-                ),
-              ),
-            );
-          } else if (context.mounted && widget.controller.errorMessage != null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(widget.controller.errorMessage!)),
-            );
-          }
-        },
-      ),
-    );
-  }
-
-  void _showInfoDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('About Fertilizer Prediction'),
-        content: const Text(
-          'Input your soil nutrient specifications and environmental conditions '
-          'to calculate the recommended fertilizer application details.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Got it'),
-          ),
-        ],
       ),
     );
   }

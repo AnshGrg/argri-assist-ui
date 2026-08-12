@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../constants/app_colors.dart';
-import '../constants/app_sizes.dart';
 
 class NutrientInputField extends StatelessWidget {
   final String label;
-  final String initialValue;
+  final String? initialValue;
+  final String? hintText;
   final ValueChanged<String> onChanged;
   final TextInputType keyboardType;
 
   const NutrientInputField({
     super.key,
     required this.label,
-    required this.initialValue,
+    this.initialValue,
+    this.hintText,
     required this.onChanged,
     this.keyboardType = const TextInputType.numberWithOptions(decimal: true),
   });
@@ -22,20 +23,15 @@ class NutrientInputField extends StatelessWidget {
     return Column(
       children: [
         Container(
-          width: 100,
-          height: 70,
+          height: 56,
           decoration: BoxDecoration(
-            color: AppColors.white.withValues(alpha: 0.6),
-            borderRadius: BorderRadius.circular(AppSizes.radiusMedium),
-            border: Border.all(
-              color: AppColors.white.withValues(alpha: 0.8),
-              width: 1,
-            ),
-            boxShadow: const [
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
               BoxShadow(
-                color: AppColors.cardShadow,
+                color: Colors.black.withValues(alpha: 0.04),
                 blurRadius: 6,
-                offset: Offset(0, 2),
+                offset: const Offset(0, 2),
               ),
             ],
           ),
@@ -46,27 +42,34 @@ class NutrientInputField extends StatelessWidget {
               keyboardType: keyboardType,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w600,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
                 color: AppColors.textDark,
               ),
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
               ],
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
+                hintText: hintText,
+                hintStyle: const TextStyle(
+                  color: AppColors.textLight,
+                  fontSize: 14,
+                  fontWeight: FontWeight.normal,
+                ),
                 border: InputBorder.none,
                 contentPadding: EdgeInsets.zero,
               ),
             ),
           ),
         ),
-        AppSizes.spaceS,
+        const SizedBox(height: 6),
         Text(
           label,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.textMedium,
-                fontWeight: FontWeight.w500,
-              ),
+          style: const TextStyle(
+            fontSize: 12,
+            color: AppColors.textMedium,
+            fontWeight: FontWeight.w500,
+          ),
         ),
       ],
     );

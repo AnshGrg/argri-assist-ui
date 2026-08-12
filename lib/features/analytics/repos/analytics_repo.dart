@@ -22,6 +22,8 @@ abstract class AnalyticsRepo {
   Future<List<RegionalFertilizerDemand>> fetchFertilizerDemand(String? authToken);
   Future<List<SoilAcidityHotspot>> fetchSoilAcidityHotspots(String? authToken);
   Future<List<SeasonalCropDistribution>> fetchCropDistribution(String? authToken);
+  Future<CropDistributionResponse?> fetchFullCropDistributionResponse(String? authToken);
+  Future<List<CropLeaderboardItem>> fetchCropLeaderboard(String? authToken);
   Future<List<DailyUsageTrend>> fetchUsageTrends(String? authToken);
   Future<List<ClimateCardModel>> fetchClimateData(String? authToken);
 }
@@ -144,6 +146,7 @@ class HttpAnalyticsRepo implements AnalyticsRepo {
     return [];
   }
 
+  @override
   Future<CropDistributionResponse?> fetchFullCropDistributionResponse(String? authToken) async {
     final url = Uri.parse(ApiEndpoints.analyticsCropDistribution);
     final response = await _client.get(url, headers: await _buildHeaders(authToken));
@@ -155,6 +158,7 @@ class HttpAnalyticsRepo implements AnalyticsRepo {
     return null;
   }
 
+  @override
   Future<List<CropLeaderboardItem>> fetchCropLeaderboard(String? authToken) async {
     final url = Uri.parse(ApiEndpoints.analyticsCropDistribution);
     final response = await _client.get(url, headers: await _buildHeaders(authToken));
@@ -187,7 +191,6 @@ class HttpAnalyticsRepo implements AnalyticsRepo {
 
   @override
   Future<List<ClimateCardModel>> fetchClimateData(String? authToken) async {
-    // NASA Satellite Climate averages fallback/spec endpoint
     return [
       ClimateCardModel(city: 'Pokhara', averageTemperature: 24.8, averageHumidity: 82.1, averageRainfall: 245.5),
       ClimateCardModel(city: 'Chitwan', averageTemperature: 28.2, averageHumidity: 74.5, averageRainfall: 180.0),
@@ -336,6 +339,30 @@ class MockAnalyticsRepo implements AnalyticsRepo {
           CropShare(crop: 'muskmelon', count: 400, percentage: 45.45),
         ],
       ),
+    ];
+  }
+
+  @override
+  Future<CropDistributionResponse?> fetchFullCropDistributionResponse(String? authToken) async {
+    await Future.delayed(const Duration(milliseconds: 100));
+    final seasonal = await fetchCropDistribution(authToken);
+    final leaderboard = await fetchCropLeaderboard(authToken);
+    return CropDistributionResponse(
+      status: 'success',
+      topCropsLeaderboard: leaderboard,
+      seasonalDistribution: seasonal,
+    );
+  }
+
+  @override
+  Future<List<CropLeaderboardItem>> fetchCropLeaderboard(String? authToken) async {
+    await Future.delayed(const Duration(milliseconds: 100));
+    return [
+      CropLeaderboardItem(rank: 1, cropName: 'Rice', totalRecommendations: 1420, avgConfidencePct: 94.2),
+      CropLeaderboardItem(rank: 2, cropName: 'Maize', totalRecommendations: 890, avgConfidencePct: 88.5),
+      CropLeaderboardItem(rank: 3, cropName: 'Chickpea', totalRecommendations: 650, avgConfidencePct: 85.0),
+      CropLeaderboardItem(rank: 4, cropName: 'Lentil', totalRecommendations: 520, avgConfidencePct: 82.3),
+      CropLeaderboardItem(rank: 5, cropName: 'Jute', totalRecommendations: 510, avgConfidencePct: 79.8),
     ];
   }
 
