@@ -24,8 +24,6 @@ class HttpPredictRepo implements PredictRepo {
   Future<PredictionResultModel> predictCrop(PredictRequestModel request, {String? token}) async {
     final uri = Uri.parse(ApiEndpoints.predictCrop);
     String? lastError;
-
-    // 1. Try POST request with Bearer Auth header
     try {
       final response = await http.post(
         uri,
@@ -42,8 +40,6 @@ class HttpPredictRepo implements PredictRepo {
     } catch (e) {
       lastError = 'Network error: $e';
     }
-
-    // 2. Retry without Bearer token if auth 401/403 or CORS error occurs
     try {
       final response = await http.post(
         uri,

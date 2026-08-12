@@ -356,7 +356,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  // ─── Weather Card ─────────────────────────────────────────────────────────
 
   Widget _buildWeatherCard(BuildContext context, WeatherModel weather) {
     return ClipRRect(
@@ -373,7 +372,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Top row: location + icon
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -424,7 +422,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 ],
               ),
               const SizedBox(height: 16),
-              // Bottom row: 3 metric mini cards
               Row(
                 children: [
                   Expanded(

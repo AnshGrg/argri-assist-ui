@@ -64,8 +64,6 @@ class HttpNewsRepo implements NewsRepo {
   @override
   Future<List<NewsCategoryModel>> getCategories({String? token}) async {
     final uri = Uri.parse(ApiEndpoints.newsCategories);
-
-    // 1. Try with token headers
     try {
       final response = await http.get(uri, headers: _headers(token)).timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
@@ -81,8 +79,6 @@ class HttpNewsRepo implements NewsRepo {
         }
       }
     } catch (_) {}
-
-    // 2. Try minimal ngrok header
     try {
       final response = await http.get(uri, headers: {'ngrok-skip-browser-warning': 'true'}).timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
@@ -98,8 +94,6 @@ class HttpNewsRepo implements NewsRepo {
         }
       }
     } catch (_) {}
-
-    // 3. Try basic GET
     try {
       final response = await http.get(uri).timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
@@ -127,8 +121,6 @@ class HttpNewsRepo implements NewsRepo {
     if (search != null && search.trim().isNotEmpty) queryParams['search'] = search.trim();
 
     final uri = Uri.parse(ApiEndpoints.farmerNewsFeed).replace(queryParameters: queryParams.isEmpty ? null : queryParams);
-
-    // 1. Try with Auth token headers
     try {
       final response = await http.get(uri, headers: _headers(token)).timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
@@ -144,8 +136,6 @@ class HttpNewsRepo implements NewsRepo {
         }
       }
     } catch (_) {}
-
-    // 2. Try minimal ngrok header
     try {
       final response = await http.get(uri, headers: {'ngrok-skip-browser-warning': 'true'}).timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
@@ -161,8 +151,6 @@ class HttpNewsRepo implements NewsRepo {
         }
       }
     } catch (_) {}
-
-    // 3. Try standard GET without custom headers (bypasses browser CORS preflight restrictions)
     try {
       final response = await http.get(uri).timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
@@ -206,7 +194,6 @@ class HttpNewsRepo implements NewsRepo {
 
   @override
   Future<List<NewsArticleModel>> getAdminNewsList({String? token}) async {
-    // 1. Primary admin endpoint /api/admin/news/
     try {
       final response = await http
           .get(Uri.parse(ApiEndpoints.adminNews), headers: _headers(token))
@@ -223,8 +210,6 @@ class HttpNewsRepo implements NewsRepo {
         return list.map((item) => NewsArticleModel.fromJson(item as Map<String, dynamic>)).toList();
       }
     } catch (_) {}
-
-    // 2. Try minimal ngrok header for admin endpoint
     try {
       final response = await http
           .get(Uri.parse(ApiEndpoints.adminNews), headers: {'ngrok-skip-browser-warning': 'true'})
@@ -241,8 +226,6 @@ class HttpNewsRepo implements NewsRepo {
         return list.map((item) => NewsArticleModel.fromJson(item as Map<String, dynamic>)).toList();
       }
     } catch (_) {}
-
-    // 3. Fallback to public news feed /api/news/ if admin endpoint fails
     try {
       final farmerNews = await getFarmerNewsFeed(token: token);
       if (farmerNews.isNotEmpty) {

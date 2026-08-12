@@ -28,14 +28,10 @@ class HomeController extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
-    // Prefetch crops in background silently
     FertilizerController.prefetchCrops(HttpFertilizerRepo());
 
     try {
-      // 1. Get city selected during registration/persisted in storage
       final selectedCity = await TokenStorage.loadSelectedCity();
-
-      // 2. Fetch weather from Open-Meteo using the selected city's latitude, longitude & display name
       final weatherFuture = _homeRepo.fetchWeatherData(
         latitude: selectedCity.latitude,
         longitude: selectedCity.longitude,

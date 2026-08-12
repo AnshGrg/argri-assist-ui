@@ -28,7 +28,6 @@ class HttpFertilizerRepo implements FertilizerRepo {
 
     String? lastError;
 
-    // 1. Try POST request with Bearer Auth header so prediction is stored in DB for authenticated farmer
     try {
       final response = await http.post(
         uri,
@@ -46,7 +45,6 @@ class HttpFertilizerRepo implements FertilizerRepo {
       lastError = 'Network error: $e';
     }
 
-    // 2. Retry without Bearer token if auth 401/403 or CORS error occurs
     try {
       final response = await http.post(
         uri,
@@ -66,8 +64,6 @@ class HttpFertilizerRepo implements FertilizerRepo {
   @override
   Future<List<String>> getCrops() async {
     final uri = Uri.parse(ApiEndpoints.getCrops);
-
-    // 1. Try with ngrok header
     try {
       final response = await http.get(
         uri,
@@ -87,8 +83,6 @@ class HttpFertilizerRepo implements FertilizerRepo {
         }
       }
     } catch (_) {}
-
-    // 2. Try standard GET without headers
     try {
       final response = await http.get(uri).timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
@@ -105,7 +99,6 @@ class HttpFertilizerRepo implements FertilizerRepo {
       }
     } catch (_) {}
 
-    // 3. Fallback default 22 supported crops
     return const [
       'apple', 'banana', 'blackgram', 'chickpea', 'coconut', 'coffee',
       'cotton', 'grapes', 'jute', 'kidneybeans', 'lentil', 'maize',
@@ -117,8 +110,6 @@ class HttpFertilizerRepo implements FertilizerRepo {
   @override
   Future<List<String>> getFertilizers() async {
     final uri = Uri.parse(ApiEndpoints.getFertilizers);
-
-    // 1. Try with ngrok header
     try {
       final response = await http.get(
         uri,
@@ -138,8 +129,6 @@ class HttpFertilizerRepo implements FertilizerRepo {
         }
       }
     } catch (_) {}
-
-    // 2. Try standard GET without headers
     try {
       final response = await http.get(uri).timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
@@ -156,7 +145,6 @@ class HttpFertilizerRepo implements FertilizerRepo {
       }
     } catch (_) {}
 
-    // 3. Fallback default 9 supported fertilizers
     return const [
       'Urea', 'DAP', 'MOP', 'SSP', 'NPK 10-26-26', 'NPK 12-32-16', 'NPK 20-20-0', 'Compost', 'Lime'
     ];

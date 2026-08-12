@@ -305,19 +305,12 @@ class _AnalyticsDashboardScreenState extends State<AnalyticsDashboardScreen> {
       isDesktop: isDesktop,
     );
   }
-
-  // ================= PAGE 2: REGIONAL SOIL HEALTH & FERTILIZER DEMAND =================
   Widget _buildPage2SoilAndFertilizer(BuildContext context, bool isDesktop) {
     return AdminSoilFertilizerView(
       controller: _controller,
       isDesktop: isDesktop,
     );
   }
-
-
-
-
-  // ================= PAGE 3: CROP CULTIVATION & SATELLITE CLIMATE INTELLIGENCE =================
   Widget _buildPage3CropAndClimate(BuildContext context, bool isDesktop) {
     return AdminCropClimateView(
       controller: _controller,
@@ -340,8 +333,6 @@ class _AnalyticsDashboardScreenState extends State<AnalyticsDashboardScreen> {
       return matchesFilter && matchesSearch;
     }).toList();
   }
-
-  // ================= PAGE 4: NEWS & ADVISORIES MANAGEMENT =================
   Widget _buildPage4NewsManagement(BuildContext context, bool isDesktop) {
     return AdminNewsManagementView(
       newsController: _newsController,
