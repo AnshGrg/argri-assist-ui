@@ -81,8 +81,6 @@ class _PredictFertilizerScreenState extends State<PredictFertilizerScreen> {
     );
   }
 
-  // ─── Header ───────────────────────────────────────────────────────────────
-
   Widget _buildHeader(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
@@ -142,7 +140,6 @@ class _PredictFertilizerScreenState extends State<PredictFertilizerScreen> {
     );
   }
 
-  // ─── Crop Section ─────────────────────────────────────────────────────────
 
   Widget _buildCropSection(BuildContext context) {
     return Column(
@@ -293,7 +290,6 @@ class _PredictFertilizerScreenState extends State<PredictFertilizerScreen> {
     );
   }
 
-  // ─── NPK Section ──────────────────────────────────────────────────────────
 
   Widget _buildNpkSection(BuildContext context) {
     return Column(
@@ -356,7 +352,6 @@ class _PredictFertilizerScreenState extends State<PredictFertilizerScreen> {
     );
   }
 
-  // ─── Location Section ─────────────────────────────────────────────────────
 
   Widget _buildLocationSection(BuildContext context) {
     return Column(
@@ -436,7 +431,6 @@ class _PredictFertilizerScreenState extends State<PredictFertilizerScreen> {
     );
   }
 
-  // ─── Season Section ───────────────────────────────────────────────────────
 
   Widget _buildSeasonSection(BuildContext context) {
     return Column(
@@ -516,7 +510,6 @@ class _PredictFertilizerScreenState extends State<PredictFertilizerScreen> {
     );
   }
 
-  // ─── Soil pH Section ──────────────────────────────────────────────────────
 
   Widget _buildPhSection(BuildContext context) {
     return Column(
@@ -597,7 +590,6 @@ class _PredictFertilizerScreenState extends State<PredictFertilizerScreen> {
     );
   }
 
-  // ─── Climate Notice ───────────────────────────────────────────────────────
 
   Widget _buildClimateNotice(BuildContext context) {
     return Container(
@@ -630,7 +622,6 @@ class _PredictFertilizerScreenState extends State<PredictFertilizerScreen> {
     );
   }
 
-  // ─── Submit Button ────────────────────────────────────────────────────────
 
   String? _validateInputs() {
     final n = widget.controller.nitrogen;

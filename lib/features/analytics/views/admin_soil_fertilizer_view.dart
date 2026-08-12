@@ -16,7 +16,6 @@ class AdminSoilFertilizerView extends StatelessWidget {
     required this.isDesktop,
   });
 
-  // ─── Helpers ────────────────────────────────────────────────────────────────
 
   Widget _webCard({required Widget child}) {
     return Container(
@@ -59,8 +58,6 @@ class AdminSoilFertilizerView extends StatelessWidget {
     );
   }
 
-  // ─── Build ───────────────────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
     final kpi = controller.kpiData;
@@ -95,7 +92,6 @@ class AdminSoilFertilizerView extends StatelessWidget {
     );
   }
 
-  // ─── NPK Card ────────────────────────────────────────────────────────────────
 
   Widget _buildNpkDeficiencyCard(dynamic kpi) {
     final nRate = kpi?.nitrogenDeficiencyRate ?? 42.0;
@@ -166,8 +162,6 @@ class AdminSoilFertilizerView extends StatelessWidget {
       ],
     );
   }
-
-  // ─── Acidity Hotspots Card ────────────────────────────────────────────────
 
   Widget _buildSoilAcidityHotspotsCard() {
     final hotspots = controller.acidityHotspotsList;
@@ -275,7 +269,6 @@ class AdminSoilFertilizerView extends StatelessWidget {
     );
   }
 
-  // ─── Fertilizer Demand Card ───────────────────────────────────────────────
 
   Widget _buildFertilizerDemandCard(BuildContext context) {
     final list = controller.fertilizerDemandList;

@@ -494,8 +494,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  // ─── Prediction Cards ─────────────────────────────────────────────────────
-
   Widget _buildPredictionSection(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -659,8 +657,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  // ─── Recent Activity ──────────────────────────────────────────────────────
-
   Widget _buildRecentActivity(
     BuildContext context,
     List<PredictionHistoryModel> history,
@@ -808,8 +804,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  // ─── News Banner ──────────────────────────────────────────────────────────
-
   Widget _buildNewsCardBanner(BuildContext context) {
     return GestureDetector(
       onTap: () {
@@ -874,8 +868,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ),
     );
   }
-
-  // ─── Bottom Nav ───────────────────────────────────────────────────────────
 
   Widget _buildBottomNavigationBar(BuildContext context) {
     return Container(
